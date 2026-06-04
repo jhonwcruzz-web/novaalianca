@@ -1,0 +1,199 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #F8F7FC;
+    --foreground: #101827;
+    --card: #FFFFFF;
+    --card-foreground: #101827;
+    --border: #E5E7EB;
+    --muted: #6B7280;
+    --accent: #0891B2;
+  }
+
+  .dark {
+    --background: #09090B;
+    --foreground: #F8FAFC;
+    --card: #121217;
+    --card-foreground: #F8FAFC;
+    --border: #1E293B;
+    --muted: #94A3B8;
+    --accent: #22D3EE;
+  }
+
+  html {
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-color: var(--background);
+    color: var(--foreground);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-600 hover:bg-brand-500 text-white font-semibold px-5 py-2.5 rounded-input transition-all duration-200 inline-flex items-center gap-2 shadow-lg shadow-brand-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-border hover:border-brand-400 text-foreground font-medium px-5 py-2.5 rounded-input transition-all duration-200 inline-flex items-center gap-2;
+  }
+
+  .btn-danger {
+    @apply bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-danger font-medium px-4 py-2 rounded-input transition-all duration-200 inline-flex items-center gap-1;
+  }
+
+  .btn-success {
+    @apply bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-5 py-2.5 rounded-input transition-all duration-200 inline-flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50;
+  }
+
+  .card {
+    @apply bg-[var(--card)] text-[var(--card-foreground)] rounded-card border border-border shadow-sm p-5 transition-all duration-300 hover:shadow-md;
+  }
+
+  .input {
+    @apply w-full bg-[var(--card)] border border-border rounded-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder-muted transition;
+  }
+
+  .table-header {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-muted bg-zinc-50 dark:bg-zinc-900/50 px-4 py-3;
+  }
+
+  .table-cell {
+    @apply px-4 py-3 text-sm text-foreground opacity-80 border-t border-border;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider;
+  }
+
+  .badge-cat1 {
+    @apply badge bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300;
+  }
+
+  .badge-cat2 {
+    @apply badge bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300;
+  }
+
+  .badge-cat3 {
+    @apply badge bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300;
+  }
+
+  .badge-danger {
+    @apply badge bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 transition-all duration-200 cursor-pointer select-none font-medium;
+  }
+
+  .sidebar-item-active {
+    @apply sidebar-item bg-brand-50 dark:bg-brand-900/20 text-brand-600 font-bold shadow-sm;
+  }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  opacity: 0.3;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Skeleton animation */
+@keyframes shimmer {
+  from {
+    background-position: -1000px 0;
+  }
+
+  to {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  @apply bg-zinc-200 dark:bg-zinc-800;
+  background-image: linear-gradient(90deg, transparent 25%, rgba(255, 255, 255, 0.1) 50%, transparent 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 6px;
+}
+
+/* Print Overrides */
+@media print {
+  @page {
+    margin: 1cm;
+  }
+
+  body,
+  html {
+    background-color: white !important;
+    color: black !important;
+    overflow: visible !important;
+  }
+
+  /* Esconde sidebar, topbar e popups na impressão */
+  aside,
+  header {
+    display: none !important;
+  }
+
+  /* Garante que o root preencha o espaço sem scroll lateral */
+  #root,
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    min-width: 100%;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Modal backdrop escondido e modal forçado a ser block como doc comum */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+  }
+}
