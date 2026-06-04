@@ -6,8 +6,7 @@ import {
     Users, Award, BarChart3, Carrot
 } from 'lucide-react'
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 
 interface ProdutorMetrics {
@@ -28,8 +27,6 @@ interface KpiData {
     lucroTotal: number
     margemMedia: number
 }
-
-const COLORS = ['#10B981', '#0891B2', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6']
 
 function SkeletonCard() {
     return <div className="card"><div className="skeleton h-4 w-24 mb-3" /><div className="skeleton h-8 w-32" /></div>
@@ -196,7 +193,7 @@ export default function CaptaçãoDashboard() {
                                     <Tooltip
                                         cursor={{ fill: 'var(--muted)', opacity: 0.1 }}
                                         contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
-                                        formatter={(val: number) => [`${val.toLocaleString('pt-BR')} kg`, 'Volume']}
+                                        formatter={(val: any) => [`${(Number(val) || 0).toLocaleString('pt-BR')} kg`, 'Volume']}
                                     />
                                     <Bar dataKey="kg" fill="#0891B2" radius={[0, 4, 4, 0]} barSize={20} />
                                 </BarChart>

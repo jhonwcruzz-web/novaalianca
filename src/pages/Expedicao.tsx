@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { formatDate, formatCurrency } from '../lib/utils'
-import type { EstoquePalete, Comprador, Classificacao, Motorista } from '../lib/types'
+import type { Comprador, Classificacao, Motorista } from '../lib/types'
 
 import toast from 'react-hot-toast'
 import { X, ChevronLeft, ChevronRight, CheckCircle, Trash2 } from 'lucide-react'
@@ -35,7 +35,6 @@ interface ExpedicaoRow {
 
 export default function Expedicao() {
     const { role } = useAuth()
-    const isDono = role === 'dono'
     const canOperate = role === 'dono' || role === 'operador'
 
     const [rows, setRows] = useState<ExpedicaoRow[]>([])
@@ -652,7 +651,7 @@ function PaleteSelector({ onClose, onSuccess, clientes, vendedores, motoristas }
                                     <td className="table-cell text-right">{r.palete?.peso_total_kg?.toLocaleString('pt-BR')} kg</td>
                                     <td className="table-cell text-right text-brand-600 font-medium">{formatCurrency(r.preco_compra)}</td>
                                     <td className="table-cell">
-                                        {r.palete?.classificacao ? <span className={({ CAT1: 'badge-cat1', CAT2: 'badge-cat2', CAT3: 'badge-cat3' }[r.palete.classificacao] ?? 'badge')}>{r.palete.classificacao}</span> : '—'}
+                                        {r.palete?.classificacao ? <span className={(classColors[r.palete.classificacao] ?? 'badge')}>{r.palete.classificacao}</span> : '—'}
                                     </td>
                                 </tr>
                             ))}

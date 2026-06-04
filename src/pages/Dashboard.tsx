@@ -285,7 +285,7 @@ export default function Dashboard() {
                     value={String(kpi?.pedidosPendentesCount ?? 0)}
                     icon={<Clock className="w-5 h-5 text-warning" />}
                     sublabel={formatCurrency(kpi?.pedidosPendentesValor ?? 0)}
-                    alert={kpi && kpi.pedidosPendentesCount > 5}
+                    alert={kpi ? kpi.pedidosPendentesCount > 5 : undefined}
                 />
                 <KpiCard
                     label="Estoque Principal"
