@@ -179,7 +179,7 @@ export default function Login() {
                             type="button"
                             onClick={handleDevLogin}
                             disabled={loading}
-                            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 text-sm tracking-wide cursor-pointer"
+                            className="w-full flex items-center justify-center gap-2 border border-brand-500/40 bg-brand-500/10 hover:bg-brand-500/20 text-brand-600 dark:text-brand-400 font-bold py-2.5 px-4 rounded-xl transition-all duration-200 text-sm tracking-wide cursor-pointer"
                         >
                             🍇 Acesso Rápido (Modo Dev - Dono)
                         </button>
