@@ -121,6 +121,8 @@ export interface EstoquePalete {
     embalagem: string | null
     marca: string | null
     armazem_id: string | null
+    dias_frio: number | null
+    mercado: string | null
     status: 'disponivel' | 'reservado' | 'expedido'
     created_at: string
     variedade?: Variedade

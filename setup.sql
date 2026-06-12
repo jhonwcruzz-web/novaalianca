@@ -102,6 +102,8 @@ CREATE TABLE IF NOT EXISTS estoque (
   embalagem TEXT,
   marca TEXT,
   armazem_id UUID REFERENCES armazens(id) ON DELETE SET NULL,
+  dias_frio INTEGER,
+  mercado TEXT,
   status TEXT DEFAULT 'disponivel' CHECK (status IN ('disponivel', 'reservado', 'expedido')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );

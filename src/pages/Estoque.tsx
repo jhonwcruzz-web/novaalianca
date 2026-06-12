@@ -716,6 +716,9 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
     produtores: Produtor[]
     armazens: Armazem[]
 }) {
+    const [step, setStep] = useState<'config' | 'upload'>('config')
+    const [configDate, setConfigDate] = useState(new Date().toISOString().slice(0, 10))
+    const [configArmazem, setConfigArmazem] = useState('')
     const [dragOver, setDragOver] = useState(false)
     const [rows, setRows] = useState<Record<string, unknown>[]>([])
     const [importing, setImporting] = useState(false)
@@ -754,22 +757,27 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
 
         const payload = rows.map((r, i) => {
 
+            // Suporte a dois formatos de cabeçalho:
+            // Formato A (sistema): "Classificação", "Nº Palete", "Data Estoque", etc.
+            // Formato B (CSV externo): "MERCADO" (MI=CAT1, vazio=CAT3), "PALLET", "DATA", etc.
             const rawCat = String(r['Classificação'] ?? r['classificacao'] ?? '').toUpperCase()
+            const rawMercado = String(r['MERCADO'] ?? r['Mercado'] ?? r['mercado'] ?? '').trim().toUpperCase()
 
-            let cleanCat: Classificacao = 'CAT1' // Default
+            let cleanCat: Classificacao
             if (rawCat.includes('3') || rawCat.includes('III')) cleanCat = 'CAT3'
             else if (rawCat.includes('2') || rawCat.includes('II')) cleanCat = 'CAT2'
             else if (rawCat.includes('1') || rawCat.includes('I')) cleanCat = 'CAT1'
-            else if (rawCat.includes('CAT1')) cleanCat = 'CAT1'
-            else if (rawCat.includes('CAT2')) cleanCat = 'CAT2'
-            else if (rawCat.includes('CAT3')) cleanCat = 'CAT3'
+            else if (rawMercado === 'MI') cleanCat = 'CAT1'
+            else if (rawMercado === '') cleanCat = 'CAT3'
+            else cleanCat = 'CAT1'
 
-            // Função mais robusta para converter datas do Excel pro banco
             const parseDate = (val: unknown) => {
                 if (!val) return new Date().toISOString().slice(0, 10);
                 let str = String(val).trim();
 
-                // Se for DD/MM/YYYY
+                // Remove parte de hora se vier junto (ex: "15/05/2026 20:05:45")
+                if (str.includes(' ')) str = str.split(' ')[0];
+
                 if (str.includes('/')) {
                     const parts = str.split('/');
                     if (parts.length === 3) {
@@ -777,36 +785,65 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
                     }
                 }
 
-                // Tenta limpar strings com hora (ex: "2026 19:01:05-01-30" -> pegar só parte da data se possível)
-                // Ou apenas tenta converter via JavaScript nativo
                 try {
                     const d = new Date(str);
-                    if (!isNaN(d.getTime())) {
-                        return d.toISOString().slice(0, 10);
-                    }
-                } catch (e) {
-                    // ignora erro e tenta fallback
-                }
+                    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+                } catch (_) { /* ignora */ }
 
-                // Se cair aqui, a data é inválida ou estranha, retorna hoje por segurança
                 return new Date().toISOString().slice(0, 10);
             }
 
-            return {
-                data_estoque: parseDate(r['Data Estoque'] ?? r['data_estoque']),
-                data_entrada: parseDate(r['Data Entrada'] ?? r['data_entrada']),
-                numero_palete: String(r['Nº Palete'] ?? r['Numero Palete'] ?? r['numero_palete'] ?? `IMP-${Date.now()}-${i}`),
-                descricao: String(r['Descrição'] ?? r['descricao'] ?? ''),
-                caixas: Number(r['Caixas'] ?? r['caixas'] ?? 0),
-                peso_caixa: Number(r['Peso Caixa'] ?? r['peso_caixa'] ?? 0),
-                mascaro: String(r['Mascaro'] ?? r['mascaro'] ?? ''),
-                variedade_id: varMap[norm(String(r['Variedade'] ?? r['variedade'] ?? ''))] ?? null,
-                produtor_id: prodMap[norm(String(r['Produtor'] ?? r['produtor'] ?? ''))] ?? null,
-                classificacao: cleanCat,
-                embalagem: String(r['Embalagem'] ?? r['embalagem'] ?? ''),
-                marca: String(r['Marca'] ?? r['marca'] ?? ''),
-                armazem_id: armMap[norm(String(r['Armazém'] ?? r['Armazem'] ?? r['armazem'] ?? ''))] ?? null,
+            // data_entrada vem da coluna DATA do arquivo (data original do palete)
+            const dataB = r['DATA'] ?? r['Data']
+            const dataEntrada = r['Data Entrada'] ?? r['data_entrada'] ?? dataB
 
+            const diasFrio = r['DIAS_FRIO'] ?? r['Dias Frio'] ?? r['dias_frio']
+
+            const pesoCaixa = (() => {
+                const raw = r['Peso Caixa'] ?? r['peso_caixa'] ?? r['PESO'] ?? r['Peso']
+                if (raw != null && raw !== '') return Number(String(raw).replace(',', '.'))
+                const match = String(r['PRODUTO'] ?? r['Produto'] ?? r['Descrição'] ?? r['descricao'] ?? '').match(/(\d+[,.]?\d*)\s*[Kk]g/)
+                return match ? Number(match[1].replace(',', '.')) : 0
+            })()
+
+            // Embalagem automática por peso quando não informada explicitamente
+            const embalagemCSV = String(r['Embalagem'] ?? r['embalagem'] ?? '').trim()
+            const embalagem = embalagemCSV || (pesoCaixa === 5 ? 'CUMBUCA' : pesoCaixa === 8 ? 'SACOLA' : '')
+
+            // Armazém: usa o selecionado no passo 1 se informado, senão tenta coluna da planilha
+            const armazem_id = configArmazem || (armMap[norm(String(r['Armazém'] ?? r['Armazem'] ?? r['armazem'] ?? r['LOCAL_ESTOQUE'] ?? r['Local Estoque'] ?? ''))] ?? null)
+
+            return {
+                data_estoque: configDate,
+                data_entrada: parseDate(dataEntrada),
+                numero_palete: String(r['Nº Palete'] ?? r['Numero Palete'] ?? r['numero_palete'] ?? r['PALLET'] ?? r['Pallet'] ?? `IMP-${Date.now()}-${i}`),
+                descricao: String(r['Descrição'] ?? r['descricao'] ?? r['PRODUTO'] ?? r['Produto'] ?? ''),
+                caixas: Number(String(r['Caixas'] ?? r['caixas'] ?? r['QTD_CX'] ?? r['Qtd Cx'] ?? 0).replace(',', '.')),
+                peso_caixa: pesoCaixa,
+                mascaro: String(r['Mascaro'] ?? r['mascaro'] ?? r['NUMERO_TERCEIRO'] ?? r['Numero Terceiro'] ?? ''),
+                variedade_id: varMap[norm(String(r['Variedade'] ?? r['variedade'] ?? r['VARIEDADE'] ?? ''))] ?? null,
+                produtor_id: (() => {
+                    // Formato antigo: coluna "Produtor" tem o nome direto
+                    const direto = String(r['Produtor'] ?? r['produtor'] ?? '').trim()
+                    if (direto) return prodMap[norm(direto)] ?? null
+                    // Formato B: LOCAL_ESTOQUE é o nome completo do produtor cadastrado no sistema
+                    // ex: "NOVA ALIANÇA - MANOEL PEDRO" → lookup pelo nome completo
+                    const local = String(r['LOCAL_ESTOQUE'] ?? r['Local Estoque'] ?? '').trim()
+                    return prodMap[norm(local)] ?? null
+                })(),
+                classificacao: cleanCat,
+                embalagem,
+                marca: (() => {
+                    const fromCol = String(r['Marca'] ?? r['marca'] ?? '').trim()
+                    if (fromCol) return fromCol
+                    // Extrai da descrição: "... - CINTA DOCE DIVERSAO" → "DOCE DIVERSAO"
+                    const produto = String(r['PRODUTO'] ?? r['Produto'] ?? r['Descrição'] ?? r['descricao'] ?? '')
+                    const match = produto.match(/(?:CINTA|ETIQUETA)\s+(.+)$/i)
+                    return match ? match[1].trim() : ''
+                })(),
+                armazem_id,
+                dias_frio: diasFrio != null && diasFrio !== '' ? Number(diasFrio) : null,
+                mercado: rawMercado || (String(r['Mercado'] ?? '').trim()) || null,
                 status: 'disponivel' as const,
             }
         })
@@ -853,51 +890,101 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-[var(--card)] rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-border">
 
-                {/* Header - Fixed */}
+                {/* Header */}
                 <div className="p-6 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
-
-                    <h2 className="text-lg font-bold text-foreground">Importar Excel</h2>
-
+                    <div>
+                        <h2 className="text-lg font-bold text-foreground">Importar Excel</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Passo {step === 'config' ? '1' : '2'} de 2 — {step === 'config' ? 'Configurar importação' : 'Selecionar arquivo'}
+                        </p>
+                    </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
                 </div>
 
-                {/* Content - Scrollable */}
+                {/* Content */}
                 <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
-                    <div
-                        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                        onDragLeave={() => setDragOver(false)}
-                        onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
-                        onClick={() => fileRef.current?.click()}
-                        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${dragOver ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-brand-400'}`}
-                    >
-                        <FileUp className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-gray-600">Arraste um arquivo .xlsx ou clique para selecionar</p>
-                        <p className="text-xs text-gray-400 mt-1">Máximo 5 MB</p>
-                        <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-                    </div>
 
-                    {rows.length > 0 && (
-                        <div className="mt-4">
-                            <p className="text-sm font-medium text-foreground/80 mb-2">
-                                {rows.length} linhas detectadas. Preview (primeiras 5 linhas):</p>
-                            <div className="overflow-x-auto border border-gray-100 rounded-xl">
-                                <table className="text-xs w-full">
-                                    <thead><tr>{Object.keys(rows[0]).slice(0, 6).map(k => <th key={k} className="table-header">{k}</th>)}</tr></thead>
-                                    <tbody>{rows.slice(0, 5).map((r, i) => (
-                                        <tr key={i}>{Object.values(r).slice(0, 6).map((v, j) => <td key={j} className="table-cell">{String(v)}</td>)}</tr>
-                                    ))}</tbody>
-                                </table>
+                    {step === 'config' ? (
+                        <div className="flex flex-col gap-5">
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">Data de Entrada no Estoque</label>
+                                <input
+                                    type="date"
+                                    value={configDate}
+                                    onChange={e => setConfigDate(e.target.value)}
+                                    className="input w-full"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">Será aplicada a todos os paletes do arquivo.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">Armazém</label>
+                                <select
+                                    value={configArmazem}
+                                    onChange={e => setConfigArmazem(e.target.value)}
+                                    className="input w-full"
+                                >
+                                    <option value="">— Usar armazém da planilha (se houver) —</option>
+                                    {armazens.map(a => (
+                                        <option key={a.id} value={a.id}>{a.nome}</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-muted-foreground mt-1">Deixe em branco para usar a coluna LOCAL_ESTOQUE do arquivo.</p>
                             </div>
                         </div>
+                    ) : (
+                        <>
+                            <div className="mb-4 p-3 bg-muted/40 rounded-xl text-xs text-muted-foreground flex gap-4">
+                                <span><span className="font-medium text-foreground">Data:</span> {configDate}</span>
+                                <span><span className="font-medium text-foreground">Armazém:</span> {configArmazem ? (armazens.find(a => a.id === configArmazem)?.nome ?? '—') : 'da planilha'}</span>
+                            </div>
+                            <div
+                                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                                onDragLeave={() => setDragOver(false)}
+                                onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+                                onClick={() => fileRef.current?.click()}
+                                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${dragOver ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-brand-400'}`}
+                            >
+                                <FileUp className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                <p className="text-sm font-medium text-gray-600">Arraste um arquivo .xlsx ou clique para selecionar</p>
+                                <p className="text-xs text-gray-400 mt-1">Máximo 5 MB</p>
+                                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+                            </div>
+
+                            {rows.length > 0 && (
+                                <div className="mt-4">
+                                    <p className="text-sm font-medium text-foreground/80 mb-2">
+                                        {rows.length} linhas detectadas. Preview (primeiras 5 linhas):</p>
+                                    <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                                        <table className="text-xs w-full">
+                                            <thead><tr>{Object.keys(rows[0]).slice(0, 6).map(k => <th key={k} className="table-header">{k}</th>)}</tr></thead>
+                                            <tbody>{rows.slice(0, 5).map((r, i) => (
+                                                <tr key={i}>{Object.values(r).slice(0, 6).map((v, j) => <td key={j} className="table-cell">{String(v)}</td>)}</tr>
+                                            ))}</tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 
-                {/* Footer - Fixed */}
+                {/* Footer */}
                 <div className="p-6 pt-4 border-t border-gray-100 flex gap-3 justify-end flex-shrink-0">
-                    <button onClick={onClose} className="btn-secondary">Cancelar</button>
-                    <button onClick={confirmImport} disabled={rows.length === 0 || importing} className="btn-primary">
-                        {importing ? 'Importando...' : '✅ Confirmar Importação'}
-                    </button>
+                    {step === 'config' ? (
+                        <>
+                            <button onClick={onClose} className="btn-secondary">Cancelar</button>
+                            <button onClick={() => setStep('upload')} disabled={!configDate} className="btn-primary">
+                                Próximo →
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={() => setStep('config')} className="btn-secondary">← Voltar</button>
+                            <button onClick={confirmImport} disabled={rows.length === 0 || importing} className="btn-primary">
+                                {importing ? 'Importando...' : '✅ Confirmar Importação'}
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
