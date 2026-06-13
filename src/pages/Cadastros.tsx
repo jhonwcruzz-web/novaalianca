@@ -190,6 +190,9 @@ export default function Cadastros() {
                                             <p><span className="font-medium text-foreground/50">Cidade: </span>{a.cidade ?? '—'}</p>
                                             <p><span className="font-medium text-foreground/50">Capacidade: </span>{a.capacidade_tons ? `${a.capacidade_tons} tons` : '—'}</p>
                                             <p><span className="font-medium text-foreground/50">Tipo: </span>{a.tipo ?? '—'}</p>
+                                            {a.custo_dia_frio != null && (
+                                                <p><span className="font-medium text-foreground/50">Frio: </span>{formatCurrency(a.custo_dia_frio)}/dia · limite {a.limite_dias_frio ?? '—'}d · excedente {a.custo_dia_excedente != null ? formatCurrency(a.custo_dia_excedente) : '—'}/dia</p>
+                                            )}
                                         </div>
                                     </div>
                                     {canOperate && (
@@ -366,6 +369,9 @@ function CadastroModal({ tab, editItem, onClose, onSuccess }: {
             { key: 'cidade', label: 'Cidade', type: 'text' },
             { key: 'capacidade_tons', label: 'Capacidade (tons)', type: 'number' },
             { key: 'tipo', label: 'Tipo', type: 'text' },
+            { key: 'custo_dia_frio', label: 'Custo/Dia Frio (R$)', type: 'number' },
+            { key: 'limite_dias_frio', label: 'Limite Dias Frio', type: 'number' },
+            { key: 'custo_dia_excedente', label: 'Custo Excedente/Dia (R$)', type: 'number' },
             { key: 'status', label: 'Status', type: 'select', options: ['ativo', 'inativo'] },
         ],
         clientes: [

@@ -101,6 +101,9 @@ export interface Armazem {
     capacidade_tons: number | null
     tipo: string | null
     status: 'ativo' | 'inativo'
+    custo_dia_frio: number | null
+    limite_dias_frio: number | null
+    custo_dia_excedente: number | null
     created_at: string
 }
 
@@ -237,8 +240,55 @@ export interface Expedicao {
     valor_venda_total_bruto?: number
     valor_desconto?: number
     valor_venda_total_liquido?: number
+    transportador_nome?: string | null
+    local_frete?: string | null
+    valor_frete?: number | null
     palete?: EstoquePalete
     comprador?: Comprador
     cliente?: { nome: string }
+    pedido?: Pedido
+}
+
+export type CategoriaInsumo = 'embalagem' | 'paletizacao' | 'colheita' | 'manutencao' | 'descartavel' | 'outros'
+export type TipoMovimento = 'entrada' | 'saida' | 'descarte' | 'ajuste'
+export type StatusPTV = 'pendente' | 'solicitado' | 'emitido' | 'concluido'
+
+export interface Insumo {
+    id: string
+    nome: string
+    categoria: CategoriaInsumo
+    unidade: string
+    estoque_atual: number
+    estoque_minimo: number
+    observacoes: string | null
+    status: 'ativo' | 'inativo'
+    created_at: string
+}
+
+export interface MovimentoInsumo {
+    id: string
+    insumo_id: string
+    tipo: TipoMovimento
+    quantidade: number
+    referencia: string | null
+    data: string
+    observacoes: string | null
+    created_at: string
+    insumo?: Insumo
+}
+
+export interface PTV {
+    id: string
+    pedido_id: string | null
+    numero_ptv: string | null
+    cfop: string
+    destino_uf: string | null
+    destino_municipio: string | null
+    valor_total_nf: number | null
+    data_solicitacao: string | null
+    data_emissao: string | null
+    status: StatusPTV
+    observacoes: string | null
+    created_at: string
     pedido?: Pedido
 }

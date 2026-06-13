@@ -27,10 +27,12 @@ interface ExpedicaoRow {
     valor_total: number | null
     status: string
     palete_id: string | null
+    transportador_nome?: string | null
+    local_frete?: string | null
+    valor_frete?: number | null
     palete: { numero_palete: string; caixas: number; peso_total_kg: number; classificacao: Classificacao; data_entrada: string; descricao: string; armazem: { nome: string } | null; produtor: { nome: string } | null; variedade: { nome: string } | null } | null
     cliente: { nome: string } | null
     comprador: { nome: string } | null
-
 }
 
 export default function Expedicao() {
@@ -77,6 +79,7 @@ export default function Expedicao() {
                 vendedor_nome, motorista_nome, motorista_cpf, placa_veiculo,
                 numero_pedido, valor_venda_caixa, valor_venda_total_bruto,
                 valor_desconto, valor_venda_total_liquido,
+                transportador_nome, local_frete, valor_frete,
                 palete:palete_id(numero_palete, caixas, peso_total_kg, classificacao, data_entrada, descricao,
                   armazem:armazem_id(nome), produtor:produtor_id(nome), variedade:variedade_id(nome)),
                 comprador:comprador_id(nome), 
@@ -305,6 +308,9 @@ export default function Expedicao() {
                                     <ResizableHeader initialWidth={200}>MOTORISTA</ResizableHeader>
                                     <ResizableHeader initialWidth={130}>CPF MOT.</ResizableHeader>
                                     <ResizableHeader initialWidth={100}>PLACA</ResizableHeader>
+                                    <ResizableHeader initialWidth={160}>TRANSPORTADOR</ResizableHeader>
+                                    <ResizableHeader initialWidth={140}>LOCAL FRETE</ResizableHeader>
+                                    {!isBeta && <ResizableHeader initialWidth={120} className="text-right">VLR. FRETE</ResizableHeader>}
                                     {!isBeta && <ResizableHeader initialWidth={110} className="text-right">VENDA CX</ResizableHeader>}
                                     {!isBeta && <ResizableHeader initialWidth={150} className="text-right">VENDA TOTAL</ResizableHeader>}
                                     <ResizableHeader initialWidth={100}>STATUS</ResizableHeader>
@@ -358,6 +364,9 @@ export default function Expedicao() {
                                         <td className="table-cell">{r.motorista_nome ?? '—'}</td>
                                         <td className="table-cell text-xs">{r.motorista_cpf ?? '—'}</td>
                                         <td className="table-cell font-mono">{r.placa_veiculo ?? '—'}</td>
+                                        <td className="table-cell">{r.transportador_nome ?? '—'}</td>
+                                        <td className="table-cell">{r.local_frete ?? '—'}</td>
+                                        {!isBeta && <td className="table-cell text-right font-medium">{r.valor_frete != null ? formatCurrency(r.valor_frete) : '—'}</td>}
                                         {!isBeta && <td className="table-cell text-right font-medium">{formatCurrency(r.valor_venda_caixa)}</td>}
                                         {!isBeta && <td className="table-cell text-right font-black text-brand-600">{formatCurrency(r.valor_venda_total_liquido)}</td>}
                                         <td className="table-cell">
@@ -451,6 +460,9 @@ function PaleteSelector({ onClose, onSuccess, clientes, vendedores, motoristas }
     const [pedido, setPedido] = useState('')
     const [precoCx, setPrecoCx] = useState('')
     const [descontos, setDescontos] = useState('0')
+    const [transportador, setTransportador] = useState('')
+    const [localFrete, setLocalFrete] = useState('')
+    const [valorFrete, setValorFrete] = useState('')
 
     const [saving, setSaving] = useState(false)
 
@@ -535,6 +547,9 @@ function PaleteSelector({ onClose, onSuccess, clientes, vendedores, motoristas }
                 valor_venda_total_bruto: bruto,
                 valor_desconto: propDesc,
                 valor_venda_total_liquido: bruto - propDesc,
+                transportador_nome: transportador || null,
+                local_frete: localFrete || null,
+                valor_frete: valorFrete ? Number(valorFrete) : null,
                 status: 'expedido'
             }).eq('id', id)
 
@@ -620,6 +635,18 @@ function PaleteSelector({ onClose, onSuccess, clientes, vendedores, motoristas }
                     <div>
                         <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Descontos (Total)</label>
                         <input type="number" step="0.01" value={descontos} onChange={e => setDescontos(e.target.value)} className="input h-10" placeholder="0,00" />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Transportador / Freteiro</label>
+                        <input type="text" value={transportador} onChange={e => setTransportador(e.target.value)} className="input h-10" placeholder="Nome do transportador" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Local / Rota do Frete</label>
+                        <input type="text" value={localFrete} onChange={e => setLocalFrete(e.target.value)} className="input h-10" placeholder="Ex: SP → CE" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Valor do Frete (R$)</label>
+                        <input type="number" step="0.01" min="0" value={valorFrete} onChange={e => setValorFrete(e.target.value)} className="input h-10" placeholder="0,00" />
                     </div>
                     <div className="md:col-span-2 flex items-end">
                         <div className="w-full p-2 bg-brand-50 dark:bg-brand-900/10 rounded-lg border border-brand-100 dark:border-brand-900/30 flex justify-between items-center">

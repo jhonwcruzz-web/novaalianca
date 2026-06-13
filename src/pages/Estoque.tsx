@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { formatDate, calcDaysFromDate } from '../lib/utils'
+import { formatDate, calcDaysFromDate, formatCurrency } from '../lib/utils'
 import type { EstoquePalete, Classificacao, Variedade, Produtor, Armazem, Comprador, Pedido } from '../lib/types'
 
 import toast from 'react-hot-toast'
@@ -81,7 +81,7 @@ export default function Estoque() {
         setLoading(true)
         let query = supabase
             .from('estoque')
-            .select('*, variedade_id, variedade:variedade_id(nome), produtor_id, produtor:produtor_id(nome), armazem_id, armazem:armazem_id(nome)', { count: 'exact' })
+            .select('*, variedade_id, variedade:variedade_id(nome), produtor_id, produtor:produtor_id(nome), armazem_id, armazem:armazem_id(nome, custo_dia_frio, limite_dias_frio, custo_dia_excedente)', { count: 'exact' })
             .order('data_estoque', { ascending: false })
             .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
 
@@ -445,6 +445,7 @@ export default function Estoque() {
                                     <ResizableHeader initialWidth={160} className="sticky left-10 z-20 bg-[var(--background)]">Nº PALETE</ResizableHeader>
                                     <ResizableHeader initialWidth={110}>IDADE</ResizableHeader>
                                     <ResizableHeader initialWidth={120}>DIAS FRIO</ResizableHeader>
+                                    <ResizableHeader initialWidth={130} className="text-right">CUSTO FRIO</ResizableHeader>
                                     <ResizableHeader initialWidth={350}>DESCRIÇÃO</ResizableHeader>
                                     <ResizableHeader initialWidth={110} className="text-right">CAIXAS</ResizableHeader>
                                     <ResizableHeader initialWidth={120} className="text-right">PESO CX</ResizableHeader>
@@ -486,6 +487,19 @@ export default function Estoque() {
                                                     <span className={`w-2 h-2 rounded-full ${firoAlert ? 'bg-danger' : 'bg-blue-400'}`} />
                                                     {diasFrio}d
                                                 </span>
+                                            </td>
+                                            <td className="table-cell text-right whitespace-nowrap">
+                                                {(() => {
+                                                    const arm = p.armazem as { custo_dia_frio?: number; limite_dias_frio?: number; custo_dia_excedente?: number } | null
+                                                    if (!arm?.custo_dia_frio) return <span className="text-muted">—</span>
+                                                    const lim = arm.limite_dias_frio ?? Infinity
+                                                    const excedente = arm.custo_dia_excedente ?? arm.custo_dia_frio
+                                                    const custo = diasFrio <= lim
+                                                        ? diasFrio * arm.custo_dia_frio
+                                                        : lim * arm.custo_dia_frio + (diasFrio - lim) * excedente
+                                                    const isExc = diasFrio > lim
+                                                    return <span className={`font-semibold ${isExc ? 'text-danger' : 'text-foreground'}`}>{formatCurrency(custo)}</span>
+                                                })()}
                                             </td>
                                             <td className="table-cell">{p.descricao ?? '—'}</td>
                                             <td className="table-cell text-right">{p.caixas ?? '—'}</td>
