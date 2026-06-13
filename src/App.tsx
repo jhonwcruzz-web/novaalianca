@@ -10,6 +10,7 @@ import Estoque from './pages/Estoque'
 import Expedicao from './pages/Expedicao'
 import Pedidos from './pages/Pedidos'
 import Cadastros from './pages/Cadastros'
+import Usuarios from './pages/Usuarios'
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="expedicao" element={<Expedicao />} />
               <Route path="pedidos" element={<Pedidos />} />
               <Route path="cadastros" element={<Cadastros />} />
+              <Route path="usuarios" element={<Usuarios />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

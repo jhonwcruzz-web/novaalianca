@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import {
     FileDown, FileUp, ClipboardList, X, ChevronLeft, ChevronRight,
-    Trash2, RefreshCw
+    Trash2, RefreshCw, Plus, Layers
 } from 'lucide-react'
 import ResizableHeader from '../components/ResizableHeader'
 
@@ -44,6 +44,7 @@ export default function Estoque() {
     // Modals
     const [showImport, setShowImport] = useState(false)
     const [showRomaneio, setShowRomaneio] = useState(false)
+    const [showAddPalete, setShowAddPalete] = useState(false)
 
     // Romaneio form
     const [romComprador, setRomComprador] = useState('')
@@ -302,6 +303,20 @@ export default function Estoque() {
     }
 
 
+    async function deleteSelected() {
+        if (selected.size === 0) return
+        if (!confirm(`Excluir ${selected.size} palete(s) permanentemente? Esta ação não pode ser desfeita.`)) return
+        const ids = Array.from(selected)
+        const { error } = await supabase.from('estoque').delete().in('id', ids)
+        if (error) {
+            toast.error('Erro ao excluir: ' + error.message)
+        } else {
+            toast.success(`${ids.length} palete(s) excluído(s)`)
+            setSelected(new Set())
+            fetchPaletes()
+        }
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -313,14 +328,25 @@ export default function Estoque() {
 
                 {canOperate && (
                     <div className="flex items-center gap-2">
+                        {selected.size > 0 && (
+                            <button onClick={deleteSelected} className="btn-danger text-sm py-2">
+                                <Trash2 className="w-4 h-4" /> Excluir {selected.size} selecionado(s)
+                            </button>
+                        )}
+                        <button onClick={() => setShowAddPalete(true)} className="btn-gold text-sm py-2">
+                            <Plus className="w-4 h-4" /> Adicionar
+                        </button>
                         <button onClick={() => setShowImport(true)} className="btn-secondary text-sm py-2">
                             <FileUp className="w-4 h-4" /> Importar Excel
                         </button>
                         <button onClick={exportExcel} className="btn-secondary text-sm py-2">
                             <FileDown className="w-4 h-4" /> Exportar Excel
                         </button>
-                        <button onClick={syncPaletes} className="btn-secondary text-sm py-2 group" title="Sincronizar status com expedição">
-                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} /> Sincronizar
+                        <button onClick={fetchPaletes} className="btn-secondary text-sm py-2 group" title="Recarregar dados">
+                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} /> Atualizar
+                        </button>
+                        <button onClick={syncPaletes} className="btn-secondary text-sm py-2" title="Sincronizar status com expedição">
+                            <RefreshCw className="w-4 h-4" /> Sincronizar
                         </button>
                         <button onClick={() => { if (selected.size === 0) { toast.error('Selecione ao menos 1 palete'); return } setShowRomaneio(true) }}
                             className="btn-primary text-sm py-2">
@@ -410,13 +436,13 @@ export default function Estoque() {
                         <table className="w-full text-left min-w-[1400px]">
                             <thead>
                                 <tr>
-                                    <th className="table-header w-10"><input type="checkbox" className="accent-brand-600" onChange={e => {
+                                    <th className="table-header w-10 sticky left-0 z-20"><input type="checkbox" className="accent-brand-600" onChange={e => {
                                         if (e.target.checked) setSelected(new Set(paletes.filter(p => p.status === 'disponivel').map(p => p.id)))
                                         else setSelected(new Set())
                                     }} /></th>
                                     <ResizableHeader initialWidth={130}>DATA EST.</ResizableHeader>
                                     <ResizableHeader initialWidth={130}>DATA ENT.</ResizableHeader>
-                                    <ResizableHeader initialWidth={160}>Nº PALETE</ResizableHeader>
+                                    <ResizableHeader initialWidth={160} className="sticky left-10 z-20 bg-[var(--background)]">Nº PALETE</ResizableHeader>
                                     <ResizableHeader initialWidth={110}>IDADE</ResizableHeader>
                                     <ResizableHeader initialWidth={120}>DIAS FRIO</ResizableHeader>
                                     <ResizableHeader initialWidth={350}>DESCRIÇÃO</ResizableHeader>
@@ -440,9 +466,9 @@ export default function Estoque() {
                                     const idadePalete = calcDaysFromDate(p.data_entrada)
                                     const firoAlert = diasFrio >= 7
                                     return (
-                                        <tr key={p.id} className={`hover:bg-brand-50/30 dark:hover:bg-brand-900/10 transition-colors ${selected.has(p.id) ? 'bg-brand-500/10 dark:bg-brand-500/20 shadow-[inset_4px_0_0_0_#0891B2]' : ''}`}>
+                                        <tr key={p.id} className={`hover:bg-brand-50/30 dark:hover:bg-brand-900/10 transition-colors ${selected.has(p.id) ? 'bg-brand-500/10 dark:bg-brand-500/20 shadow-[inset_4px_0_0_0_#C9A236]' : ''}`}>
 
-                                            <td className="table-cell">
+                                            <td className="table-cell-sticky left-0">
                                                 <input
                                                     type="checkbox"
                                                     className="accent-brand-600 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -453,7 +479,7 @@ export default function Estoque() {
                                             </td>
                                             <td className="table-cell whitespace-nowrap">{formatDate(p.data_estoque)}</td>
                                             <td className="table-cell whitespace-nowrap">{formatDate(p.data_entrada)}</td>
-                                            <td className="table-cell font-mono font-medium text-brand-700">{p.numero_palete}</td>
+                                            <td className="table-cell-sticky left-10 font-mono font-medium text-brand-700">{p.numero_palete}</td>
                                             <td className="table-cell whitespace-nowrap">{idadePalete}d</td>
                                             <td className="table-cell whitespace-nowrap">
                                                 <span className={`inline-flex items-center gap-1 text-xs font-semibold ${firoAlert ? 'text-danger' : 'text-blue-500'}`}>
@@ -529,6 +555,9 @@ export default function Estoque() {
             {/* Import Modal */}
             {showImport && <ImportModal onClose={() => setShowImport(false)} onSuccess={() => { setShowImport(false); fetchPaletes() }} variedades={variedades} produtores={produtores} armazens={armazens} />}
 
+            {/* Adicionar Palete Manual */}
+            {showAddPalete && <AddPaleteModal onClose={() => setShowAddPalete(false)} onSuccess={() => { setShowAddPalete(false); fetchPaletes() }} variedades={variedades} produtores={produtores} armazens={armazens} />}
+
 
 
             {/* Romaneio Modal */}
@@ -582,7 +611,7 @@ export default function Estoque() {
                                                             <th className="px-4 py-2 text-center font-semibold text-muted text-[10px] uppercase tracking-wider w-40">
                                                                 <div className="mb-1 text-[10px]">Valor Compra KG</div>
                                                                 <div className="flex items-center justify-center gap-1 bg-muted/10 px-1.5 py-1 rounded-lg border border-border">
-                                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#0891B2]">Em Massa:</span>
+                                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--accent)]">Em Massa:</span>
                                                                     <input
                                                                         type="number"
                                                                         step="0.01"
@@ -755,7 +784,48 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
         const armMap: Record<string, string> = {}
         armazens.forEach(a => { armMap[norm(a.nome)] = a.id })
 
-        const payload = rows.map((r, i) => {
+        // Extrai o nome do produtor de LOCAL_ESTOQUE (sufixo após o primeiro "-")
+        const extrairProdutor = (local: string): string => {
+            const idx = local.indexOf('-')
+            return idx >= 0 ? local.slice(idx + 1).trim() : local.trim()
+        }
+
+        // Busca fresca do banco para garantir maps atualizados (independente da prop)
+        const [{ data: varFresh }, { data: prodFresh }] = await Promise.all([
+            supabase.from('variedades').select('id, nome'),
+            supabase.from('produtores').select('id, nome'),
+        ])
+        if (varFresh) varFresh.forEach(v => { varMap[norm(v.nome)] = v.id })
+        if (prodFresh) prodFresh.forEach(p => { prodMap[norm(p.nome)] = p.id })
+
+        // Cria produtores e variedades ausentes
+        const novosNomes = new Set<string>()
+        rows.forEach(r => {
+            const direto = String(r['Produtor'] ?? r['produtor'] ?? '').trim()
+            const nome = direto || extrairProdutor(String(r['LOCAL_ESTOQUE'] ?? r['Local Estoque'] ?? '').trim())
+            if (nome && !prodMap[norm(nome)]) novosNomes.add(nome)
+        })
+        if (novosNomes.size > 0) {
+            await supabase.from('produtores')
+                .insert(Array.from(novosNomes).map(nome => ({ nome, status: 'ativo' })))
+            const { data: todosProd } = await supabase.from('produtores').select('id, nome')
+            if (todosProd) todosProd.forEach(p => { prodMap[norm(p.nome)] = p.id })
+        }
+
+        const novasVariedades = new Set<string>()
+        rows.forEach(r => {
+            const nome = String(r['Variedade'] ?? r['variedade'] ?? r['VARIEDADE'] ?? '').trim()
+            if (nome && !varMap[norm(nome)]) novasVariedades.add(nome)
+        })
+        if (novasVariedades.size > 0) {
+            const { error: errVar } = await supabase.from('variedades')
+                .insert(Array.from(novasVariedades).map(nome => ({ nome })))
+            if (errVar) toast.error('Erro ao criar variedades: ' + errVar.message)
+            const { data: todasVar } = await supabase.from('variedades').select('id, nome')
+            if (todasVar) todasVar.forEach(v => { varMap[norm(v.nome)] = v.id })
+        }
+
+        const payload = rows.map((r, _i) => {
 
             // Suporte a dois formatos de cabeçalho:
             // Formato A (sistema): "Classificação", "Nº Palete", "Data Estoque", etc.
@@ -808,7 +878,7 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
 
             // Embalagem automática por peso quando não informada explicitamente
             const embalagemCSV = String(r['Embalagem'] ?? r['embalagem'] ?? '').trim()
-            const embalagem = embalagemCSV || (pesoCaixa === 5 ? 'CUMBUCA' : pesoCaixa === 8 ? 'SACOLA' : '')
+            const embalagem = embalagemCSV || (pesoCaixa === 5 ? 'Caixa 5kg' : pesoCaixa === 8 ? 'Caixa 8kg' : '')
 
             // Armazém: usa o selecionado no passo 1 se informado, senão tenta coluna da planilha
             const armazem_id = configArmazem || (armMap[norm(String(r['Armazém'] ?? r['Armazem'] ?? r['armazem'] ?? r['LOCAL_ESTOQUE'] ?? r['Local Estoque'] ?? ''))] ?? null)
@@ -816,20 +886,21 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
             return {
                 data_estoque: configDate,
                 data_entrada: parseDate(dataEntrada),
-                numero_palete: String(r['Nº Palete'] ?? r['Numero Palete'] ?? r['numero_palete'] ?? r['PALLET'] ?? r['Pallet'] ?? `IMP-${Date.now()}-${i}`),
+                numero_palete: (() => {
+                    const raw = String(r['Nº Palete'] ?? r['Numero Palete'] ?? r['numero_palete'] ?? r['PALLET'] ?? r['Pallet'] ?? '').trim()
+                    // "PICADO" e valores não numéricos recebem número único P + 7 dígitos aleatórios
+                    if (!raw || raw.toUpperCase() === 'PICADO') return `P${Math.floor(1000000 + Math.random() * 9000000)}`
+                    return raw
+                })(),
                 descricao: String(r['Descrição'] ?? r['descricao'] ?? r['PRODUTO'] ?? r['Produto'] ?? ''),
                 caixas: Number(String(r['Caixas'] ?? r['caixas'] ?? r['QTD_CX'] ?? r['Qtd Cx'] ?? 0).replace(',', '.')),
                 peso_caixa: pesoCaixa,
                 mascaro: String(r['Mascaro'] ?? r['mascaro'] ?? r['NUMERO_TERCEIRO'] ?? r['Numero Terceiro'] ?? ''),
                 variedade_id: varMap[norm(String(r['Variedade'] ?? r['variedade'] ?? r['VARIEDADE'] ?? ''))] ?? null,
                 produtor_id: (() => {
-                    // Formato antigo: coluna "Produtor" tem o nome direto
                     const direto = String(r['Produtor'] ?? r['produtor'] ?? '').trim()
-                    if (direto) return prodMap[norm(direto)] ?? null
-                    // Formato B: LOCAL_ESTOQUE é o nome completo do produtor cadastrado no sistema
-                    // ex: "NOVA ALIANÇA - MANOEL PEDRO" → lookup pelo nome completo
-                    const local = String(r['LOCAL_ESTOQUE'] ?? r['Local Estoque'] ?? '').trim()
-                    return prodMap[norm(local)] ?? null
+                    const nome = direto || extrairProdutor(String(r['LOCAL_ESTOQUE'] ?? r['Local Estoque'] ?? '').trim())
+                    return prodMap[norm(nome)] ?? null
                 })(),
                 classificacao: cleanCat,
                 embalagem,
@@ -881,6 +952,24 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
             .from('estoque')
             .upsert(uniquePayload, { onConflict: 'numero_palete' })
 
+        if (!error) {
+            // Alimenta a base de templates com as descrições únicas desta importação
+            const rawTemplates = uniquePayload
+                .filter(p => p.descricao && p.variedade_id)
+                .map(p => ({
+                    descricao: p.descricao,
+                    variedade_id: p.variedade_id ?? null,
+                    classificacao: p.classificacao ?? null,
+                    peso_caixa: p.peso_caixa ?? null,
+                    embalagem: p.embalagem ?? null,
+                    marca: p.marca ?? null,
+                }))
+            const uniqueTemplates = Array.from(new Map(rawTemplates.map(t => [t.descricao, t])).values())
+            if (uniqueTemplates.length > 0) {
+                await supabase.from('produto_templates').upsert(uniqueTemplates, { onConflict: 'descricao' })
+            }
+        }
+
         setImporting(false)
         if (error) { toast.error('Erro na importação: ' + error.message) }
         else { toast.success(`${payload.length} paletes processados!`); onSuccess() }
@@ -917,18 +1006,18 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
                                 <p className="text-xs text-muted-foreground mt-1">Será aplicada a todos os paletes do arquivo.</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-foreground mb-1.5">Armazém</label>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">Armazém <span className="text-red-500">*</span></label>
                                 <select
                                     value={configArmazem}
                                     onChange={e => setConfigArmazem(e.target.value)}
                                     className="input w-full"
                                 >
-                                    <option value="">— Usar armazém da planilha (se houver) —</option>
+                                    <option value="">— Selecione um armazém —</option>
                                     {armazens.map(a => (
                                         <option key={a.id} value={a.id}>{a.nome}</option>
                                     ))}
                                 </select>
-                                <p className="text-xs text-muted-foreground mt-1">Deixe em branco para usar a coluna LOCAL_ESTOQUE do arquivo.</p>
+                                <p className="text-xs text-muted-foreground mt-1">Obrigatório para continuar.</p>
                             </div>
                         </div>
                     ) : (
@@ -973,7 +1062,7 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
                     {step === 'config' ? (
                         <>
                             <button onClick={onClose} className="btn-secondary">Cancelar</button>
-                            <button onClick={() => setStep('upload')} disabled={!configDate} className="btn-primary">
+                            <button onClick={() => setStep('upload')} disabled={!configDate || !configArmazem} className="btn-primary">
                                 Próximo →
                             </button>
                         </>
@@ -985,6 +1074,383 @@ function ImportModal({ onClose, onSuccess, variedades, produtores, armazens }: {
                             </button>
                         </>
                     )}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── Modal: Adicionar Paletes Manualmente ─────────────────────────────────────
+
+interface ProdutoTemplate {
+    id: string
+    descricao: string
+    variedade_id: string | null
+    classificacao: string | null
+    peso_caixa: number | null
+    embalagem: string | null
+    marca: string | null
+}
+
+interface AddLinha {
+    id: string
+    template_id: string
+    template: ProdutoTemplate | null
+    classificacao: string
+    caixas: string
+}
+
+const LINHA_VAZIA = (): AddLinha => ({
+    id: String(Date.now() + Math.random()),
+    template_id: '',
+    template: null,
+    classificacao: 'CAT1',
+    caixas: '',
+})
+
+function AddPaleteModal({ onClose, onSuccess, produtores, armazens }: {
+    onClose: () => void
+    onSuccess: () => void
+    variedades: Variedade[]
+    produtores: Produtor[]
+    armazens: Armazem[]
+}) {
+    const [produtor_id, setProdutorId] = useState('')
+    const [armazem_id, setArmazemId] = useState('')
+    const [data, setData] = useState(new Date().toISOString().slice(0, 10))
+    const [cxPorPalete, setCxPorPalete] = useState('110')
+    const [linhas, setLinhas] = useState<AddLinha[]>([LINHA_VAZIA()])
+    const [templates, setTemplates] = useState<ProdutoTemplate[]>([])
+    const [loadingTemplates, setLoadingTemplates] = useState(true)
+    const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        supabase
+            .from('produto_templates')
+            .select('*')
+            .order('descricao')
+            .then(({ data }) => {
+                setTemplates((data ?? []) as ProdutoTemplate[])
+                setLoadingTemplates(false)
+            })
+    }, [])
+
+    function addLinha() {
+        setLinhas(prev => [...prev, LINHA_VAZIA()])
+    }
+
+    function removeLinha(id: string) {
+        setLinhas(prev => prev.filter(l => l.id !== id))
+    }
+
+    function selectTemplate(linhaId: string, templateId: string) {
+        const tpl = templates.find(t => t.id === templateId) ?? null
+        setLinhas(prev => prev.map(l =>
+            l.id === linhaId
+                ? { ...l, template_id: templateId, template: tpl, classificacao: tpl?.classificacao ?? l.classificacao }
+                : l
+        ))
+    }
+
+    function updateCaixas(linhaId: string, value: string) {
+        setLinhas(prev => prev.map(l => l.id === linhaId ? { ...l, caixas: value } : l))
+    }
+
+    function updateClassificacao(linhaId: string, value: string) {
+        setLinhas(prev => prev.map(l => l.id === linhaId ? { ...l, classificacao: value } : l))
+    }
+
+    const cxPP = Math.max(1, Number(cxPorPalete) || 110)
+
+    interface PreviewItem {
+        descricao: string
+        cat: string
+        tipo: 'COMPLETO' | 'PICADO'
+        caixas: number
+        variedade_id: string | null
+        peso_caixa: number | null
+        embalagem: string | null
+        marca: string | null
+    }
+
+    const previewItems: PreviewItem[] = linhas.flatMap(l => {
+        const total = Number(l.caixas) || 0
+        if (total === 0 || !l.template) return []
+        const tpl = l.template
+        const cat = l.classificacao
+        const full = Math.floor(total / cxPP)
+        const remainder = total % cxPP
+        const items: PreviewItem[] = []
+        for (let i = 0; i < full; i++) {
+            items.push({ descricao: tpl.descricao, cat, tipo: 'COMPLETO', caixas: cxPP, variedade_id: tpl.variedade_id, peso_caixa: tpl.peso_caixa, embalagem: tpl.embalagem, marca: tpl.marca })
+        }
+        if (remainder > 0) {
+            items.push({ descricao: `PICADO - ${tpl.descricao}`, cat, tipo: 'PICADO', caixas: remainder, variedade_id: tpl.variedade_id, peso_caixa: tpl.peso_caixa, embalagem: tpl.embalagem, marca: tpl.marca })
+        }
+        return items
+    })
+
+    async function save() {
+        if (!produtor_id) { toast.error('Selecione o produtor'); return }
+        if (!armazem_id) { toast.error('Selecione o armazém'); return }
+        const linhasValidas = linhas.filter(l => l.template && Number(l.caixas) > 0)
+        if (linhasValidas.length === 0) { toast.error('Informe ao menos uma linha com produto e quantidade'); return }
+
+        setSaving(true)
+        const dateStr = data || new Date().toISOString().slice(0, 10)
+
+        // Prefixo: 3 primeiras letras do nome do armazém (só letras, maiúsculas)
+        const armNome = armazens.find(a => a.id === armazem_id)?.nome ?? 'MAN'
+        const prefixo = armNome.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase().padEnd(3, 'X')
+
+        // Conta total atual do estoque para gerar sequencial
+        const { count: estoqueCount } = await supabase
+            .from('estoque')
+            .select('*', { count: 'exact', head: true })
+        let seq = (estoqueCount ?? 0) + 1
+
+        const records = linhasValidas.flatMap(l => {
+            const tpl = l.template!
+            const cat = (l.classificacao || tpl.classificacao || 'CAT1') as Classificacao
+            const total = Number(l.caixas)
+            const full = Math.floor(total / cxPP)
+            const remainder = total % cxPP
+            const items: any[] = []
+
+            for (let i = 0; i < full; i++) {
+                items.push({
+                    numero_palete: `${prefixo}${String(seq++).padStart(7, '0')}`,
+                    data_estoque: dateStr,
+                    data_entrada: dateStr,
+                    descricao: tpl.descricao,
+                    caixas: cxPP,
+                    peso_caixa: tpl.peso_caixa ?? 0,
+                    variedade_id: tpl.variedade_id ?? null,
+                    produtor_id,
+                    classificacao: cat,
+                    embalagem: tpl.embalagem ?? null,
+                    marca: tpl.marca ?? null,
+                    armazem_id,
+                    status: 'disponivel' as const,
+                })
+            }
+
+            if (remainder > 0) {
+                items.push({
+                    numero_palete: `${prefixo}${String(seq++).padStart(7, '0')}`,
+                    data_estoque: dateStr,
+                    data_entrada: dateStr,
+                    descricao: `PICADO - ${tpl.descricao}`,
+                    caixas: remainder,
+                    peso_caixa: tpl.peso_caixa ?? 0,
+                    variedade_id: tpl.variedade_id ?? null,
+                    produtor_id,
+                    classificacao: cat,
+                    embalagem: tpl.embalagem ?? null,
+                    marca: tpl.marca ?? null,
+                    armazem_id,
+                    status: 'disponivel' as const,
+                })
+            }
+
+            return items
+        })
+
+        const { error } = await supabase.from('estoque').insert(records)
+        setSaving(false)
+
+        if (error) {
+            toast.error('Erro ao salvar: ' + error.message)
+        } else {
+            toast.success(`${records.length} palete(s) criado(s) com sucesso!`)
+            onSuccess()
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[var(--card)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-border">
+
+                {/* Header */}
+                <div className="p-6 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                            <Layers className="w-5 h-5 text-[var(--accent)]" />
+                            Adicionar Paletes Manualmente
+                        </h2>
+                        <p className="text-xs text-muted mt-0.5">Produtos cadastrados automaticamente ao importar Excel</p>
+                    </div>
+                    <button onClick={onClose} className="text-muted hover:text-foreground transition"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-5">
+
+                    {/* Dados base */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="form-label">Produtor <span className="text-red-400">*</span></label>
+                            <select value={produtor_id} onChange={e => setProdutorId(e.target.value)} className="input w-full">
+                                <option value="">— Selecione —</option>
+                                {produtores.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="form-label">Armazém <span className="text-red-400">*</span></label>
+                            <select value={armazem_id} onChange={e => setArmazemId(e.target.value)} className="input w-full">
+                                <option value="">— Selecione —</option>
+                                {armazens.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="form-label">Data de Entrada</label>
+                            <input type="date" value={data} onChange={e => setData(e.target.value)} className="input w-full" />
+                        </div>
+                        <div>
+                            <label className="form-label">Caixas por Palete Completo</label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={cxPorPalete}
+                                    onChange={e => setCxPorPalete(e.target.value)}
+                                    className="input w-full"
+                                    placeholder="110"
+                                />
+                                <span className="text-xs text-muted whitespace-nowrap">cx / plt</span>
+                            </div>
+                            <p className="text-[10px] text-muted mt-1">Sobra vira PICADO automaticamente.</p>
+                        </div>
+                    </div>
+
+                    {/* Linhas de lote */}
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <label className="form-label mb-0">Produtos Recebidos</label>
+                            <button onClick={addLinha} className="text-xs text-[var(--accent)] font-bold hover:opacity-80 flex items-center gap-1 transition">
+                                <Plus className="w-3.5 h-3.5" /> Adicionar linha
+                            </button>
+                        </div>
+
+                        {loadingTemplates ? (
+                            <div className="space-y-2">
+                                {[1, 2].map(i => <div key={i} className="skeleton h-14 w-full rounded-xl" />)}
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {templates.length === 0 && (
+                                    <div className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted mb-1">
+                                        Nenhum produto na base ainda — importe um Excel e a lista será preenchida automaticamente.
+                                    </div>
+                                )}
+                                {linhas.map((l, idx) => (
+                                    <div key={l.id} className="rounded-xl border border-border bg-[var(--background)] overflow-hidden">
+                                        {/* Linha principal */}
+                                        <div className="flex items-center gap-2 p-3">
+                                            <span className="text-[10px] font-bold text-muted w-4 text-right flex-shrink-0">{idx + 1}</span>
+                                            <select
+                                                value={l.template_id}
+                                                onChange={e => selectTemplate(l.id, e.target.value)}
+                                                className="input flex-1 min-w-0 text-sm py-1.5 truncate"
+                                            >
+                                                <option value="">— Selecione o produto —</option>
+                                                {templates.map(t => (
+                                                    <option key={t.id} value={t.id}>{t.descricao}</option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={l.classificacao}
+                                                onChange={e => updateClassificacao(l.id, e.target.value)}
+                                                className="input w-24 flex-shrink-0 text-sm py-1.5 font-bold"
+                                            >
+                                                <option value="CAT1">CAT 1</option>
+                                                <option value="CAT2">CAT 2</option>
+                                                <option value="CAT3">CAT 3</option>
+                                            </select>
+                                            <div className="relative flex-shrink-0 w-28">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    placeholder="Qtd"
+                                                    value={l.caixas}
+                                                    onChange={e => updateCaixas(l.id, e.target.value)}
+                                                    className="input w-full text-sm py-1.5 pr-7"
+                                                />
+                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted font-bold">cx</span>
+                                            </div>
+                                            {linhas.length > 1 && (
+                                                <button onClick={() => removeLinha(l.id)} className="text-muted hover:text-danger transition flex-shrink-0">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Detalhes do template selecionado */}
+                                        {l.template && (
+                                            <div className="px-4 pb-3 flex flex-wrap gap-3 border-t border-border/50 pt-2">
+                                                {l.template.classificacao && (
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${l.template.classificacao === 'CAT1' ? 'badge-cat1' : l.template.classificacao === 'CAT2' ? 'badge-cat2' : 'badge-cat3'}`}>
+                                                        {l.template.classificacao}
+                                                    </span>
+                                                )}
+                                                {l.template.peso_caixa != null && (
+                                                    <span className="text-[10px] text-muted font-semibold">{l.template.peso_caixa} kg/cx</span>
+                                                )}
+                                                {l.template.embalagem && (
+                                                    <span className="text-[10px] text-muted font-semibold">{l.template.embalagem}</span>
+                                                )}
+                                                {l.template.marca && (
+                                                    <span className="text-[10px] text-muted font-semibold">{l.template.marca}</span>
+                                                )}
+                                                {l.caixas && Number(l.caixas) > 0 && (
+                                                    <span className="ml-auto text-[10px] font-bold text-[var(--accent)]">
+                                                        {Math.floor(Number(l.caixas) / cxPP)} plt + {Number(l.caixas) % cxPP > 0 ? `1 PICADO (${Number(l.caixas) % cxPP} cx)` : 'sem resto'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Preview total */}
+                    {previewItems.length > 0 && (
+                        <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--accent)] mb-3">
+                                Serão criados {previewItems.length} palete(s)
+                            </p>
+                            <div className="space-y-1.5">
+                                {previewItems.map((item, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold ${item.tipo === 'PICADO' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'}`}>
+                                                {item.tipo}
+                                            </span>
+                                            <span className="font-semibold text-foreground truncate">{item.descricao}</span>
+                                        </div>
+                                        <span className="font-bold text-foreground flex-shrink-0 ml-3">{item.caixas} cx</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-[var(--accent)]/20 flex justify-between text-xs font-bold">
+                                <span className="text-muted">Total de caixas</span>
+                                <span className="text-foreground">{previewItems.reduce((s, i) => s + i.caixas, 0).toLocaleString('pt-BR')} cx</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-border flex justify-end gap-3 flex-shrink-0">
+                    <button onClick={onClose} className="btn-secondary">Cancelar</button>
+                    <button
+                        onClick={save}
+                        disabled={saving || previewItems.length === 0}
+                        className="btn-gold"
+                    >
+                        {saving ? 'Salvando...' : `Criar ${previewItems.length} Palete(s)`}
+                    </button>
                 </div>
             </div>
         </div>

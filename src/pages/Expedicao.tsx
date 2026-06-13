@@ -34,7 +34,7 @@ interface ExpedicaoRow {
 }
 
 export default function Expedicao() {
-    const { role } = useAuth()
+    const { role, isBeta } = useAuth()
     const canOperate = role === 'dono' || role === 'operador'
 
     const [rows, setRows] = useState<ExpedicaoRow[]>([])
@@ -305,15 +305,15 @@ export default function Expedicao() {
                                     <ResizableHeader initialWidth={200}>MOTORISTA</ResizableHeader>
                                     <ResizableHeader initialWidth={130}>CPF MOT.</ResizableHeader>
                                     <ResizableHeader initialWidth={100}>PLACA</ResizableHeader>
-                                    <ResizableHeader initialWidth={110} className="text-right">VENDA CX</ResizableHeader>
-                                    <ResizableHeader initialWidth={150} className="text-right">VENDA TOTAL</ResizableHeader>
+                                    {!isBeta && <ResizableHeader initialWidth={110} className="text-right">VENDA CX</ResizableHeader>}
+                                    {!isBeta && <ResizableHeader initialWidth={150} className="text-right">VENDA TOTAL</ResizableHeader>}
                                     <ResizableHeader initialWidth={100}>STATUS</ResizableHeader>
                                     <th className="table-header whitespace-nowrap">AÇÕES</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm">
                                 {rows.map(r => (
-                                    <tr key={r.id} className={`hover:bg-brand-50/30 transition-colors ${selectedBulk.has(r.id) ? 'bg-brand-500/5 shadow-[inset_4px_0_0_0_#0891B2]' : ''}`}>
+                                    <tr key={r.id} className={`hover:bg-brand-50/30 transition-colors ${selectedBulk.has(r.id) ? 'bg-brand-500/5 shadow-[inset_4px_0_0_0_#C9A236]' : ''}`}>
                                         <td className="table-cell">
                                             <input
                                                 type="checkbox"
@@ -358,8 +358,8 @@ export default function Expedicao() {
                                         <td className="table-cell">{r.motorista_nome ?? '—'}</td>
                                         <td className="table-cell text-xs">{r.motorista_cpf ?? '—'}</td>
                                         <td className="table-cell font-mono">{r.placa_veiculo ?? '—'}</td>
-                                        <td className="table-cell text-right font-medium">{formatCurrency(r.valor_venda_caixa)}</td>
-                                        <td className="table-cell text-right font-black text-brand-600">{formatCurrency(r.valor_venda_total_liquido)}</td>
+                                        {!isBeta && <td className="table-cell text-right font-medium">{formatCurrency(r.valor_venda_caixa)}</td>}
+                                        {!isBeta && <td className="table-cell text-right font-black text-brand-600">{formatCurrency(r.valor_venda_total_liquido)}</td>}
                                         <td className="table-cell">
                                             <span className={r.status === 'expedido' ? 'badge-success' : r.status === 'pendente' ? 'badge-warning' : 'badge-danger'}>
                                                 {r.status}

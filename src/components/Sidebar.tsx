@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ArrowDownToLine, Package, Truck, Users, LogOut, LayoutList } from 'lucide-react'
+import { LayoutDashboard, ArrowDownToLine, Package, Truck, Users, UserCog, LogOut, LayoutList, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { getInitials } from '../lib/utils'
 import { useTheme } from '../hooks/useTheme'
@@ -24,8 +24,15 @@ const roleLabel: Record<string, string> = {
 export default function Sidebar() {
     const { profile, role, signOut } = useAuth()
     const navigate = useNavigate()
-    const [isCollapsed, setIsCollapsed] = useState(true)
+    const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === 'true')
     const { theme, toggleTheme } = useTheme()
+
+    function toggleCollapse() {
+        setIsCollapsed(prev => {
+            localStorage.setItem('sidebar-collapsed', String(!prev))
+            return !prev
+        })
+    }
 
     async function handleLogout() {
         await signOut()
@@ -34,26 +41,27 @@ export default function Sidebar() {
 
     return (
         <aside
-            onMouseEnter={() => setIsCollapsed(false)}
-            onMouseLeave={() => setIsCollapsed(true)}
-            className={`${isCollapsed ? 'w-20' : 'w-64'
-                } h-screen bg-[var(--card)] flex flex-col border-r border-border flex-shrink-0 z-50 transition-all duration-300 ease-in-out relative sticky top-0`}
+            className={`${isCollapsed ? 'w-20' : 'w-64'} h-screen bg-[var(--card)] flex flex-col border-r border-border flex-shrink-0 z-50 transition-all duration-300 ease-in-out relative sticky top-0`}
         >
 
-            {/* Logo area - Fixed at top */}
-            <div className={`p-4 flex-shrink-0 ${isCollapsed ? 'px-2' : 'p-8 pb-6'} transition-all`}>
-                <div className={`flex items-center gap-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-border ${isCollapsed ? 'p-2' : 'p-3'}`}>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-white dark:bg-zinc-800 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-700 flex-shrink-0">
+            {/* Botão toggle collapse */}
+            <button
+                onClick={toggleCollapse}
+                className="absolute -right-3 top-8 z-50 w-6 h-6 rounded-full bg-[var(--card)] border border-border shadow-md flex items-center justify-center text-muted hover:text-brand-500 hover:border-brand-400 transition-colors"
+                title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            >
+                {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+            </button>
 
-                        <img src="/logo.png" alt="Logo Nova Aliança" className="w-full h-full object-cover" />
+            {/* Logo area - Fixed at top */}
+            <div className={`flex items-center gap-3 flex-shrink-0 ${isCollapsed ? 'px-5 py-5 justify-center' : 'px-5 py-5'}`}>
+                <img src="/logo.png" alt="Logo Nova Aliança" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                {!isCollapsed && (
+                    <div className="flex flex-col overflow-hidden">
+                        <span className="font-bold text-foreground text-[15px] tracking-tight leading-none truncate">Nova Aliança</span>
+                        <span className="text-[10px] font-semibold text-[var(--accent)] tracking-[0.18em] uppercase mt-0.5 truncate">Distribuição</span>
                     </div>
-                    {!isCollapsed && (
-                        <div className="flex flex-col overflow-hidden">
-                            <span className="font-extrabold text-foreground text-base tracking-tight leading-none truncate">Nova Aliança</span>
-                            <span className="text-[10px] font-bold text-brand-500 tracking-[0.2em] uppercase mt-1 truncate">Distribuição</span>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
 
             {/* Navigation - Scrollable if content exceeds height */}
@@ -73,6 +81,18 @@ export default function Sidebar() {
                         {!isCollapsed && <span className="truncate">{label}</span>}
                     </NavLink>
                 ))}
+                {role === 'dono' && (
+                    <NavLink
+                        to="/usuarios"
+                        className={({ isActive }) =>
+                            `${isActive ? 'sidebar-item-active group' : 'sidebar-item group'} ${isCollapsed ? 'justify-center px-0' : ''}`
+                        }
+                        title={isCollapsed ? 'Usuários' : ''}
+                    >
+                        <UserCog className="w-5 h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
+                        {!isCollapsed && <span className="truncate">Usuários</span>}
+                    </NavLink>
+                )}
             </nav>
 
             {/* Footer - User & Theme */}
@@ -84,8 +104,8 @@ export default function Sidebar() {
                     </div>
                 )}
 
-                <div className={`flex items-center bg-zinc-50 dark:bg-zinc-900/50 border border-border transition-all duration-300 rounded-2xl ${isCollapsed ? 'p-1.5 flex-col gap-2' : 'p-2 gap-3'}`}>
-                    <div className="w-9 h-9 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center text-xs shadow-lg shadow-brand-500/20 flex-shrink-0">
+                <div className={`flex items-center transition-all duration-300 ${isCollapsed ? 'flex-col gap-2' : 'gap-3'}`}>
+                    <div className="w-9 h-9 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center text-xs shadow-brand flex-shrink-0">
                         {getInitials(profile?.nome ?? 'U')}
                     </div>
 

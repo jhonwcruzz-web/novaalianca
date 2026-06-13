@@ -58,7 +58,7 @@ export default function ResizableHeader({
             style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
             className={`relative group ${className} whitespace-nowrap overflow-hidden`}
         >
-            <div className="truncate w-full px-4 py-3">
+            <div className="truncate w-full px-3 py-2">
                 {children}
             </div>
 

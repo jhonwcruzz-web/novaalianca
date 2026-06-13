@@ -1,9 +1,45 @@
 export type UserRole = 'dono' | 'operador' | 'vendedor'
 
+export interface Permissoes {
+    telas: {
+        dashboard: boolean
+        pedidos: boolean
+        entrada: boolean
+        estoque: boolean
+        expedicao: boolean
+        cadastros: boolean
+        usuarios: boolean
+    }
+    acoes: {
+        importar: boolean
+        exportar: boolean
+        excluir: boolean
+        romaneio: boolean
+    }
+}
+
+export const DEFAULT_PERMISSIONS: Record<string, Permissoes> = {
+    dono: {
+        telas: { dashboard: true, pedidos: true, entrada: true, estoque: true, expedicao: true, cadastros: true, usuarios: true },
+        acoes: { importar: true, exportar: true, excluir: true, romaneio: true },
+    },
+    operador: {
+        telas: { dashboard: true, pedidos: true, entrada: true, estoque: true, expedicao: true, cadastros: true, usuarios: false },
+        acoes: { importar: true, exportar: true, excluir: true, romaneio: true },
+    },
+    vendedor: {
+        telas: { dashboard: true, pedidos: true, entrada: false, estoque: false, expedicao: true, cadastros: false, usuarios: false },
+        acoes: { importar: false, exportar: true, excluir: false, romaneio: true },
+    },
+}
+
 export interface Profile {
     id: string
     nome: string | null
+    email: string | null
     role: UserRole
+    status: 'ativo' | 'inativo'
+    permissions: Permissoes | null
     avatar_url: string | null
     created_at: string
 }

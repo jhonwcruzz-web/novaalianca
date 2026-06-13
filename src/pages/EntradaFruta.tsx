@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import { formatCurrency } from '../lib/utils'
 import {
     TrendingUp, Package, Box, DollarSign,
@@ -33,6 +34,7 @@ function SkeletonCard() {
 }
 
 export default function CaptaçãoDashboard() {
+    const { isBeta } = useAuth()
     const [kpi, setKpi] = useState<KpiData | null>(null)
     const [produtores, setProdutores] = useState<ProdutorMetrics[]>([])
     const [loading, setLoading] = useState(true)
@@ -154,22 +156,28 @@ export default function CaptaçãoDashboard() {
                     value={`${kpi?.totalCaixas.toLocaleString('pt-BR')} cx`}
                     icon={<Box className="w-5 h-5 text-brand-500" />}
                 />
-                <KpiCard
-                    label="Pagamento a Produtores"
-                    value={formatCurrency(kpi?.custoTotal ?? 0)}
-                    icon={<DollarSign className="w-5 h-5 text-amber-500" />}
-                />
-                <KpiCard
-                    label="Lucro Gerado"
-                    value={formatCurrency(kpi?.lucroTotal ?? 0)}
-                    icon={<TrendingUp className="w-5 h-5 text-success" />}
-                />
-                <KpiCard
-                    label="Geração de Margem"
-                    value={`${kpi?.margemMedia.toFixed(1)}%`}
-                    icon={<BarChart3 className="w-5 h-5 text-brand-500" />}
-                    highlight
-                />
+                {!isBeta && (
+                    <KpiCard
+                        label="Pagamento a Produtores"
+                        value={formatCurrency(kpi?.custoTotal ?? 0)}
+                        icon={<DollarSign className="w-5 h-5 text-amber-500" />}
+                    />
+                )}
+                {!isBeta && (
+                    <KpiCard
+                        label="Lucro Gerado"
+                        value={formatCurrency(kpi?.lucroTotal ?? 0)}
+                        icon={<TrendingUp className="w-5 h-5 text-success" />}
+                    />
+                )}
+                {!isBeta && (
+                    <KpiCard
+                        label="Geração de Margem"
+                        value={`${kpi?.margemMedia.toFixed(1)}%`}
+                        icon={<BarChart3 className="w-5 h-5 text-brand-500" />}
+                        highlight
+                    />
+                )}
             </div>
 
             {/* Rankings e Gráficos */}
@@ -195,7 +203,7 @@ export default function CaptaçãoDashboard() {
                                         contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
                                         formatter={(val: any) => [`${(Number(val) || 0).toLocaleString('pt-BR')} kg`, 'Volume']}
                                     />
-                                    <Bar dataKey="kg" fill="#0891B2" radius={[0, 4, 4, 0]} barSize={20} />
+                                    <Bar dataKey="kg" fill="#5C2E99" radius={[0, 4, 4, 0]} barSize={20} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -225,7 +233,7 @@ export default function CaptaçãoDashboard() {
                                     </div>
                                     <div className="text-right">
                                         <p className="text-lg font-black text-success">{p.margem.toFixed(1)}%</p>
-                                        <p className="text-[10px] uppercase font-bold text-muted">Lucro Mín: {formatCurrency(p.lucro)}</p>
+                                        {!isBeta && <p className="text-[10px] uppercase font-bold text-muted">Lucro Mín: {formatCurrency(p.lucro)}</p>}
                                     </div>
                                 </div>
                             ))}
@@ -249,9 +257,9 @@ export default function CaptaçãoDashboard() {
                                         <th className="table-header rounded-l-lg">Produtor</th>
                                         <th className="table-header text-right">Caixas</th>
                                         <th className="table-header text-right">Volume (KG)</th>
-                                        <th className="table-header text-right">Custo Total</th>
-                                        <th className="table-header text-right">Venda Total</th>
-                                        <th className="table-header text-right">Lucro</th>
+                                        {!isBeta && <th className="table-header text-right">Custo Total</th>}
+                                        {!isBeta && <th className="table-header text-right">Venda Total</th>}
+                                        {!isBeta && <th className="table-header text-right">Lucro</th>}
                                         <th className="table-header rounded-r-lg text-center">Margem</th>
                                     </tr>
                                 </thead>
@@ -261,9 +269,9 @@ export default function CaptaçãoDashboard() {
                                             <td className="table-cell font-bold text-foreground">{p.nome}</td>
                                             <td className="table-cell text-right">{p.caixas.toLocaleString('pt-BR')}</td>
                                             <td className="table-cell text-right font-semibold">{p.kg.toLocaleString('pt-BR')} kg</td>
-                                            <td className="table-cell text-right text-muted">{formatCurrency(p.custoTotal)}</td>
-                                            <td className="table-cell text-right">{formatCurrency(p.vendaTotal)}</td>
-                                            <td className="table-cell text-right font-bold text-success">{formatCurrency(p.lucro)}</td>
+                                            {!isBeta && <td className="table-cell text-right text-muted">{formatCurrency(p.custoTotal)}</td>}
+                                            {!isBeta && <td className="table-cell text-right">{formatCurrency(p.vendaTotal)}</td>}
+                                            {!isBeta && <td className="table-cell text-right font-bold text-success">{formatCurrency(p.lucro)}</td>}
                                             <td className="table-cell text-center">
                                                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${p.margem >= 20 ? 'bg-success/10 text-success' : p.margem > 0 ? 'bg-brand-500/10 text-brand-600' : 'bg-red-500/10 text-red-600'}`}>
                                                     {p.margem.toFixed(1)}%

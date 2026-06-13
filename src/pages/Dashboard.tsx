@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatCurrency } from '../lib/utils'
 import {
     Package, Box, TrendingUp, DollarSign, Clock,
-    ShoppingCart, Users, Calendar
+    ShoppingCart, Users, Calendar, Lock
 } from 'lucide-react'
 import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -31,14 +31,14 @@ interface RankCliente { nome: string; totalGasto: number; caixas: number }
 interface RankVendedor { nome: string; totalVendido: number; pedidos: number }
 interface EstoqueVarData { nome: string; CAT1: number; CAT2: number; CAT3: number }
 
-const CAT_COLORS = { CAT1: '#0891B2', CAT2: '#06B6D4', CAT3: '#22D3EE' }
+const CAT_COLORS = { CAT1: '#5C2E99', CAT2: '#C9A236', CAT3: '#8A9080' }
 
 function SkeletonCard() {
     return <div className="card"><div className="skeleton h-4 w-24 mb-3" /><div className="skeleton h-8 w-32" /></div>
 }
 
 export default function Dashboard() {
-    const { role } = useAuth()
+    const { role, isBeta } = useAuth()
     const isDono = role === 'dono'
 
     const [kpi, setKpi] = useState<KpiData | null>(null)
@@ -261,30 +261,39 @@ export default function Dashboard() {
 
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                <KpiCard
-                    label="Faturamento Liquido"
-                    value={formatCurrency(kpi?.totalVendido ?? 0)}
-                    icon={<TrendingUp className="w-5 h-5 text-brand-500" />}
-                    sublabel={timeFilter.toUpperCase()}
-                />
-                <KpiCard
-                    label="Lucro Bruto"
-                    value={formatCurrency(kpi?.lucro ?? 0)}
-                    icon={<DollarSign className="w-5 h-5 text-success" />}
-                    sublabel={`Margem: ${kpi?.margemLucro.toFixed(1)}%`}
-                    trendUp={kpi ? kpi.lucro > 0 : undefined}
-                />
-                <KpiCard
-                    label="Ticket Médio / Caixa"
-                    value={formatCurrency(kpi?.ticketMedio ?? 0)}
-                    icon={<ShoppingCart className="w-5 h-5 text-brand-500" />}
-                    sublabel={`${(kpi?.totalVendido ?? 0) > 0 ? 'Bom desempenho' : '-'}`}
-                />
+                {isBeta ? (
+                    <div className="col-span-2 md:col-span-3 card flex items-center justify-center gap-3 text-muted text-sm py-6">
+                        <Lock className="w-4 h-4 flex-shrink-0" />
+                        <span>Dados financeiros <strong>restritos</strong> no Modo Beta</span>
+                    </div>
+                ) : (
+                    <>
+                        <KpiCard
+                            label="Faturamento Liquido"
+                            value={formatCurrency(kpi?.totalVendido ?? 0)}
+                            icon={<TrendingUp className="w-5 h-5 text-brand-500" />}
+                            sublabel={timeFilter.toUpperCase()}
+                        />
+                        <KpiCard
+                            label="Lucro Bruto"
+                            value={formatCurrency(kpi?.lucro ?? 0)}
+                            icon={<DollarSign className="w-5 h-5 text-success" />}
+                            sublabel={`Margem: ${kpi?.margemLucro.toFixed(1)}%`}
+                            trendUp={kpi ? kpi.lucro > 0 : undefined}
+                        />
+                        <KpiCard
+                            label="Ticket Médio / Caixa"
+                            value={formatCurrency(kpi?.ticketMedio ?? 0)}
+                            icon={<ShoppingCart className="w-5 h-5 text-brand-500" />}
+                            sublabel={`${(kpi?.totalVendido ?? 0) > 0 ? 'Bom desempenho' : '-'}`}
+                        />
+                    </>
+                )}
                 <KpiCard
                     label="Pedidos Pendentes"
                     value={String(kpi?.pedidosPendentesCount ?? 0)}
                     icon={<Clock className="w-5 h-5 text-warning" />}
-                    sublabel={formatCurrency(kpi?.pedidosPendentesValor ?? 0)}
+                    sublabel={isBeta ? '••••' : formatCurrency(kpi?.pedidosPendentesValor ?? 0)}
                     alert={kpi ? kpi.pedidosPendentesCount > 5 : undefined}
                 />
                 <KpiCard
@@ -298,34 +307,42 @@ export default function Dashboard() {
             {/* Main Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Evolução de Vendas e Lucro */}
-                <div className="card lg:col-span-2">
-                    <h2 className="font-semibold text-foreground mb-6 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-brand-500" />
-                        Evolução de Faturamento e Lucro
-                    </h2>
-                    {salesHistory.length === 0 ? (
-                        <div className="h-64 flex items-center justify-center text-muted text-sm bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-border">
-                            Nenhuma venda concluída ou expedida neste período.
-                        </div>
-                    ) : (
-                        <div className="h-72 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={salesHistory} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                                    <XAxis dataKey="data" stroke="var(--muted)" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="var(--muted)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `R$ ${value / 1000}k`} />
-                                    <Tooltip
-                                        formatter={(value: any) => formatCurrency(Number(value))}
-                                        contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px', color: 'var(--foreground)' }}
-                                    />
-                                    <Legend iconType="circle" />
-                                    <Line type="monotone" name="Faturamento" dataKey="faturamento" stroke="#0891B2" strokeWidth={3} dot={{ r: 4, fill: '#0891B2' }} activeDot={{ r: 6 }} />
-                                    <Line type="monotone" name="Lucro Bruto" dataKey="lucro" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981' }} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </div>
+                {isBeta ? (
+                    <div className="card lg:col-span-2 flex flex-col items-center justify-center gap-3 text-muted min-h-[200px]">
+                        <Lock className="w-8 h-8 opacity-30" />
+                        <p className="text-sm font-semibold">Evolução de Faturamento e Lucro</p>
+                        <p className="text-xs">Restrito no Modo Beta</p>
+                    </div>
+                ) : (
+                    <div className="card lg:col-span-2">
+                        <h2 className="font-semibold text-foreground mb-6 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-brand-500" />
+                            Evolução de Faturamento e Lucro
+                        </h2>
+                        {salesHistory.length === 0 ? (
+                            <div className="h-64 flex items-center justify-center text-muted text-sm bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-border">
+                                Nenhuma venda concluída ou expedida neste período.
+                            </div>
+                        ) : (
+                            <div className="h-72 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={salesHistory} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                        <XAxis dataKey="data" stroke="var(--muted)" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="var(--muted)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `R$ ${value / 1000}k`} />
+                                        <Tooltip
+                                            formatter={(value: any) => formatCurrency(Number(value))}
+                                            contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px', color: 'var(--foreground)' }}
+                                        />
+                                        <Legend iconType="circle" />
+                                        <Line type="monotone" name="Faturamento" dataKey="faturamento" stroke="#C9A236" strokeWidth={3} dot={{ r: 4, fill: '#C9A236' }} activeDot={{ r: 6 }} />
+                                        <Line type="monotone" name="Lucro Bruto" dataKey="lucro" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981' }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Donut Chart - Qualidade */}
                 <div className="card bg-gradient-to-br from-[var(--card)] to-zinc-50 dark:to-zinc-900/10 border-none shadow-xl">
@@ -402,7 +419,7 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-black text-brand-600">{formatCurrency(c.totalGasto)}</p>
+                                        <p className="text-sm font-black text-brand-600">{isBeta ? '••••' : formatCurrency(c.totalGasto)}</p>
                                     </div>
                                 </div>
                             ))}
@@ -427,7 +444,7 @@ export default function Dashboard() {
                                     <div key={i} className="p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-border">
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-sm font-bold text-foreground">{v.nome}</span>
-                                            <span className="text-sm font-black text-brand-600">{formatCurrency(v.totalVendido)}</span>
+                                            <span className="text-sm font-black text-brand-600">{isBeta ? '••••' : formatCurrency(v.totalVendido)}</span>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className="flex-1 bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5 overflow-hidden">

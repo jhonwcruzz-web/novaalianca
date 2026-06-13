@@ -8,6 +8,7 @@ interface AuthContextType {
     user: User | null
     profile: Profile | null
     role: UserRole | null
+    isBeta: boolean
     loading: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
     signOut: () => Promise<void>
@@ -99,8 +100,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         const mockProfile: Profile = {
             id: '00000000-0000-0000-0000-000000000000',
-            nome: 'Dono Dev (Simulado)',
-            role: 'dono',
+            nome: 'Usuário Beta',
+            email: 'beta@novaalianca.com',
+            role: 'vendedor',
+            status: 'ativo',
+            permissions: null,
             avatar_url: null,
             created_at: new Date().toISOString()
         }
@@ -121,12 +125,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null)
     }
 
+    const isBeta = session?.access_token === 'mock_token'
+
     return (
         <AuthContext.Provider value={{
             session,
             user: session?.user ?? null,
             profile,
             role: profile?.role ?? null,
+            isBeta,
             loading,
             signIn,
             signOut,
