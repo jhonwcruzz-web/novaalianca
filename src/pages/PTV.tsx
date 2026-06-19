@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import type { PTV as PTVType, StatusPTV } from '../lib/types'
 import toast from 'react-hot-toast'
-import { Plus, X, FileCheck2, Clock, CheckCircle, Send, AlertTriangle, FileText, TrendingDown } from 'lucide-react'
+import { Plus, X, FileCheck2, Clock, CheckCircle, Send, AlertTriangle, FileText, TrendingDown, History } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +60,7 @@ export default function PTV() {
     const [loadingCfo, setLoadingCfo] = useState(true)
     const [showCfoModal, setShowCfoModal] = useState(false)
     const [editandoCfo, setEditandoCfo] = useState<CFOComSaldo | null>(null)
+    const [historicoModal, setHistoricoModal] = useState<CFOComSaldo | null>(null)
 
     // PTV
     const [ptvs, setPtvs] = useState<PTVType[]>([])
@@ -277,6 +278,11 @@ export default function PTV() {
                                                 {canOperate && (
                                                     <td className="table-cell">
                                                         <div className="flex items-center justify-center gap-1">
+                                                            <button onClick={() => setHistoricoModal(cfo)}
+                                                                className="p-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 text-muted hover:text-brand-600 transition"
+                                                                title="Ver histórico de uso">
+                                                                <History className="w-3.5 h-3.5" />
+                                                            </button>
                                                             <button onClick={() => { setEditandoCfo(cfo); setShowCfoModal(true) }}
                                                                 className="text-[10px] font-bold px-2 py-1 rounded-lg border border-border text-muted hover:text-foreground hover:border-brand-400 transition">
                                                                 Edit.
@@ -418,6 +424,211 @@ export default function PTV() {
                     onSuccess={() => { setShowPtvModal(false); setEditandoPtv(null); fetchPTVs(); fetchCFOs() }}
                 />
             )}
+            {historicoModal && (
+                <HistoricoCFOModal
+                    cfo={historicoModal}
+                    onClose={() => setHistoricoModal(null)}
+                    onSolicitarPtv={() => { setHistoricoModal(null); setEditandoPtv(null); setShowPtvModal(true) }}
+                />
+            )}
+        </div>
+    )
+}
+
+// ── Modal: Histórico de uso do CFO ───────────────────────────────────────────
+interface PTVHistorico {
+    id: string
+    numero_ptv: string | null
+    quantidade_utilizada: number | null
+    status: StatusPTV
+    cfop: string
+    destino_uf: string | null
+    destino_municipio: string | null
+    data_solicitacao: string | null
+    data_emissao: string | null
+    pedido: { numero_pedido: string | null; cliente: { nome: string } | null } | null
+}
+
+function HistoricoCFOModal({ cfo, onClose, onSolicitarPtv }: {
+    cfo: CFOComSaldo
+    onClose: () => void
+    onSolicitarPtv: () => void
+}) {
+    const [ptvs, setPtvs] = useState<PTVHistorico[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        supabase
+            .from('ptv')
+            .select('id, numero_ptv, quantidade_utilizada, status, cfop, destino_uf, destino_municipio, data_solicitacao, data_emissao, pedido:pedidos(numero_pedido, cliente:clientes(nome))')
+            .eq('cfo_id', cfo.id)
+            .order('created_at', { ascending: false })
+            .then(({ data }) => { setPtvs((data ?? []) as unknown as PTVHistorico[]); setLoading(false) })
+    }, [cfo.id])
+
+    const pct = cfo.quantidade_total > 0 ? (cfo.saldo_disponivel / cfo.quantidade_total) * 100 : 0
+    const diasVenc = Math.ceil((new Date(cfo.validade).getTime() - new Date().getTime()) / 86400000)
+    const vencido = diasVenc < 0
+    const vencendo = !vencido && diasVenc <= 7
+
+    function fmtQtd(v: number | null) {
+        if (v == null) return '—'
+        return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} ${cfo.unidade}`
+    }
+
+    const STATUS_STYLE: Record<StatusPTV, string> = {
+        pendente:   'badge-warning',
+        solicitado: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 badge',
+        emitido:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 badge',
+        concluido:  'badge-success',
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[var(--card)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col border border-border">
+
+                {/* Header */}
+                <div className="p-5 border-b border-border flex items-start justify-between flex-shrink-0">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono font-bold text-lg text-foreground">{cfo.numero_cfo}</span>
+                            <span className={`badge ${vencido ? 'badge-danger' : vencendo ? 'badge-warning' : 'badge-success'}`}>
+                                {vencido ? 'Vencido' : vencendo ? `Vence em ${diasVenc}d` : `Válido até ${new Date(cfo.validade).toLocaleDateString('pt-BR')}`}
+                            </span>
+                        </div>
+                        <p className="text-sm text-foreground font-semibold">{cfo.produtor_nome}</p>
+                        <p className="text-xs text-muted">{cfo.produto}{cfo.variedade ? ` · ${cfo.variedade}` : ''} · {cfo.municipio}/{cfo.uf}</p>
+                    </div>
+                    <button onClick={onClose} className="text-muted hover:text-foreground mt-1"><X className="w-5 h-5" /></button>
+                </div>
+
+                {/* Saldo visual */}
+                <div className="px-5 py-4 border-b border-border bg-[var(--background)] flex-shrink-0">
+                    <div className="grid grid-cols-3 gap-4 mb-3">
+                        <div className="text-center">
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Total CFO</p>
+                            <p className="text-xl font-black text-foreground">{fmtQtd(cfo.quantidade_total)}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Utilizado em PTVs</p>
+                            <p className="text-xl font-black text-warning">{fmtQtd(cfo.quantidade_utilizada)}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Saldo Disponível</p>
+                            <p className={`text-xl font-black ${pct < 20 ? 'text-danger' : pct < 50 ? 'text-warning' : 'text-success'}`}>
+                                {fmtQtd(cfo.saldo_disponivel)}
+                            </p>
+                        </div>
+                    </div>
+                    {/* Barra de progresso detalhada */}
+                    <div className="relative h-4 rounded-full bg-border overflow-hidden">
+                        <div
+                            className={`absolute left-0 top-0 h-full rounded-full transition-all ${pct < 20 ? 'bg-danger' : pct < 50 ? 'bg-warning' : 'bg-success'}`}
+                            style={{ width: `${Math.max(0, 100 - pct)}%` }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-[10px] font-black text-foreground/70 mix-blend-normal">
+                                {(100 - pct).toFixed(1)}% utilizado
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted mt-1">
+                        <span>0</span>
+                        <span>{fmtQtd(cfo.quantidade_total)}</span>
+                    </div>
+                </div>
+
+                {/* Lista de PTVs */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-black text-muted uppercase tracking-widest">
+                            PTVs que consumiram este CFO ({ptvs.length})
+                        </h3>
+                        {!vencido && cfo.saldo_disponivel > 0 && (
+                            <button onClick={onSolicitarPtv} className="btn-gold text-xs py-1.5">
+                                <Plus className="w-3.5 h-3.5" /> Solicitar PTV
+                            </button>
+                        )}
+                    </div>
+
+                    {loading ? (
+                        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="skeleton h-14 w-full rounded-xl" />)}</div>
+                    ) : ptvs.length === 0 ? (
+                        <div className="text-center py-10">
+                            <FileCheck2 className="w-10 h-10 text-muted opacity-20 mx-auto mb-2" />
+                            <p className="text-sm text-muted">Nenhum PTV vinculado a este CFO ainda.</p>
+                            {!vencido && cfo.saldo_disponivel > 0 && (
+                                <button onClick={onSolicitarPtv} className="mt-3 btn-gold text-xs py-1.5">
+                                    <Plus className="w-3.5 h-3.5" /> Solicitar primeiro PTV
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {ptvs.map((p, idx) => {
+                                const qtdPct = cfo.quantidade_total > 0 && p.quantidade_utilizada
+                                    ? (p.quantidade_utilizada / cfo.quantidade_total) * 100
+                                    : 0
+                                return (
+                                    <div key={p.id} className="p-3 rounded-xl border border-border bg-[var(--background)] flex items-center gap-3">
+                                        {/* Número sequencial */}
+                                        <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-xs font-black flex items-center justify-center flex-shrink-0">
+                                            {idx + 1}
+                                        </div>
+
+                                        {/* Info principal */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-mono text-xs font-semibold text-foreground">
+                                                    {p.numero_ptv ?? <span className="italic text-muted">PTV aguardando nº</span>}
+                                                </span>
+                                                <span className={STATUS_STYLE[p.status]}>{STATUS_CONFIG[p.status].label}</span>
+                                                {p.pedido?.numero_pedido && (
+                                                    <span className="text-[10px] text-muted bg-border/50 px-1.5 py-0.5 rounded">
+                                                        Pedido {p.pedido.numero_pedido}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3 mt-1 text-xs text-muted">
+                                                {p.pedido?.cliente && <span>{(p.pedido.cliente as { nome: string }).nome}</span>}
+                                                {(p.destino_municipio || p.destino_uf) && (
+                                                    <span>→ {p.destino_municipio ? `${p.destino_municipio}/` : ''}{p.destino_uf}</span>
+                                                )}
+                                                {p.data_solicitacao && <span>Sol: {new Date(p.data_solicitacao).toLocaleDateString('pt-BR')}</span>}
+                                                {p.data_emissao && <span>Emit: {new Date(p.data_emissao).toLocaleDateString('pt-BR')}</span>}
+                                            </div>
+                                        </div>
+
+                                        {/* Quantidade consumida */}
+                                        <div className="text-right flex-shrink-0">
+                                            <p className={`font-black text-sm ${p.quantidade_utilizada ? 'text-warning' : 'text-muted'}`}>
+                                                {p.quantidade_utilizada != null ? `- ${fmtQtd(p.quantidade_utilizada)}` : '—'}
+                                            </p>
+                                            {qtdPct > 0 && (
+                                                <p className="text-[10px] text-muted">{qtdPct.toFixed(1)}% do CFO</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+
+                            {/* Linha de total */}
+                            <div className="p-3 rounded-xl border-2 border-[var(--accent)]/40 bg-[var(--accent)]/5 flex items-center justify-between mt-2">
+                                <span className="text-xs font-black text-muted uppercase tracking-widest">Total consumido em {ptvs.length} PTV(s)</span>
+                                <span className="font-black text-warning">{fmtQtd(cfo.quantidade_utilizada)}</span>
+                            </div>
+                            <div className="p-3 rounded-xl border-2 border-success/40 bg-success/5 flex items-center justify-between">
+                                <span className="text-xs font-black text-muted uppercase tracking-widest">Saldo que deveria estar disponível</span>
+                                <span className={`font-black ${pct < 20 ? 'text-danger' : 'text-success'}`}>{fmtQtd(cfo.saldo_disponivel)}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 border-t border-border flex justify-end flex-shrink-0">
+                    <button onClick={onClose} className="btn-secondary">Fechar</button>
+                </div>
+            </div>
         </div>
     )
 }
