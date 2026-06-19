@@ -280,11 +280,13 @@ export interface MovimentoInsumo {
 export interface PTV {
     id: string
     pedido_id: string | null
+    cfo_id: string | null
     numero_ptv: string | null
     cfop: string
     destino_uf: string | null
     destino_municipio: string | null
     valor_total_nf: number | null
+    quantidade_utilizada: number | null
     data_solicitacao: string | null
     data_emissao: string | null
     status: StatusPTV
