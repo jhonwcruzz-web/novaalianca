@@ -45,8 +45,9 @@ export default function Estoque() {
     const [showImport, setShowImport] = useState(false)
     const [showRomaneio, setShowRomaneio] = useState(false)
     const [showAddPalete, setShowAddPalete] = useState(false)
-    const [showFrioPanel, setShowFrioPanel] = useState(false)
+    const [frioAlertMode, setFrioAlertMode] = useState(false)
     const [frioData, setFrioData] = useState<EstoquePalete[]>([])
+    const [frioImportAlert, setFrioImportAlert] = useState<EstoquePalete[]>([])
 
     // Romaneio form
     const [romComprador, setRomComprador] = useState('')
@@ -135,7 +136,7 @@ export default function Estoque() {
         setFrioData(camara as EstoquePalete[])
     }
 
-    useEffect(() => { if (showFrioPanel) fetchFrioData() }, [showFrioPanel])
+    useEffect(() => { if (frioAlertMode) fetchFrioData() }, [frioAlertMode])
 
     const selectedPaletes = paletes.filter(p => selected.has(p.id))
     const totalCaixasSel = selectedPaletes.reduce((s, p) => s + (p.caixas ?? 0), 0)
@@ -320,6 +321,29 @@ export default function Estoque() {
     }
 
 
+    async function handleImportSuccess() {
+        setShowImport(false)
+        fetchPaletes()
+        const { data } = await supabase
+            .from('estoque')
+            .select('*, armazem:armazem_id(nome, custo_dia_frio, limite_dias_frio, custo_dia_excedente)')
+            .neq('status', 'expedido')
+        const hoje = new Date()
+        const atRisk = ((data ?? []) as EstoquePalete[]).filter(p => {
+            const arm = p.armazem as { nome?: string; limite_dias_frio?: number } | null
+            const nome = arm?.nome?.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') ?? ''
+            if (!nome.includes('camara') && !nome.includes('gvs') && !nome.includes('caj')) return false
+            const limite = arm?.limite_dias_frio ?? 7
+            const dias = p.data_entrada ? Math.floor((hoje.getTime() - new Date(p.data_entrada).getTime()) / 86400000) : 0
+            return dias > limite || (limite - dias) <= 0
+        }).sort((a, b) => {
+            const da = a.data_entrada ? Math.floor((hoje.getTime() - new Date(a.data_entrada).getTime()) / 86400000) : 0
+            const db = b.data_entrada ? Math.floor((hoje.getTime() - new Date(b.data_entrada).getTime()) / 86400000) : 0
+            return db - da
+        })
+        if (atRisk.length > 0) setFrioImportAlert(atRisk)
+    }
+
     async function deleteSelected() {
         if (selected.size === 0) return
         if (!confirm(`Excluir ${selected.size} palete(s) permanentemente? Esta ação não pode ser desfeita.`)) return
@@ -333,6 +357,22 @@ export default function Estoque() {
             fetchPaletes()
         }
     }
+
+    const _hoje = new Date()
+    const tableData = frioAlertMode
+        ? frioData
+            .filter(p => {
+                const arm = p.armazem as { limite_dias_frio?: number } | null
+                const limite = arm?.limite_dias_frio ?? 7
+                const dias = p.data_entrada ? Math.floor((_hoje.getTime() - new Date(p.data_entrada).getTime()) / 86400000) : 0
+                return dias > limite || (limite - dias) <= 0
+            })
+            .sort((a, b) => {
+                const da = a.data_entrada ? Math.floor((_hoje.getTime() - new Date(a.data_entrada).getTime()) / 86400000) : 0
+                const db = b.data_entrada ? Math.floor((_hoje.getTime() - new Date(b.data_entrada).getTime()) / 86400000) : 0
+                return db - da
+            })
+        : paletes
 
     return (
         <div className="space-y-6">
@@ -389,22 +429,25 @@ export default function Estoque() {
                     <h3 className="text-2xl font-black text-foreground">{Math.round(totais.peso).toLocaleString('pt-BR')} kg</h3>
                 </div>
                 <button
-                    onClick={() => setShowFrioPanel(p => !p)}
-                    className={`card text-left transition-all hover:border-brand-400 ${showFrioPanel ? 'ring-2 ring-warning border-warning' : ''}`}
+                    onClick={() => setFrioAlertMode(p => !p)}
+                    className={`card text-left transition-all hover:border-brand-400 ${frioAlertMode ? 'ring-2 ring-warning border-warning' : ''}`}
                 >
                     <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">⚠ Alerta Frios</p>
                     <h3 className="text-2xl font-black text-warning leading-none">{totais.frios}</h3>
-                    <p className="text-[10px] text-muted mt-1">{showFrioPanel ? 'Fechar painel' : 'Ver paletes'}</p>
+                    <p className="text-[10px] text-muted mt-1">{frioAlertMode ? 'Sair do modo alerta' : 'Filtrar tabela'}</p>
                 </button>
             </div>
 
-            {/* Painel de Câmara Fria */}
-            {showFrioPanel && (
-                <FrioPainel
-                    paletes={frioData}
-                    onClose={() => setShowFrioPanel(false)}
-                    onReload={fetchFrioData}
-                />
+            {/* Alerta Frios Banner */}
+            {frioAlertMode && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl">
+                    <p className="text-sm font-bold text-warning flex items-center gap-2">
+                        ❄️ Modo Alerta Frios — paletes em câmara fria que precisam de atenção, ordenados por urgência
+                    </p>
+                    <button onClick={() => setFrioAlertMode(false)} className="text-muted hover:text-foreground flex items-center gap-1 text-xs font-semibold ml-4 flex-shrink-0">
+                        <X className="w-3.5 h-3.5" /> Sair
+                    </button>
+                </div>
             )}
 
             {/* Filters */}
@@ -492,7 +535,7 @@ export default function Estoque() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {paletes.map(p => {
+                                {tableData.map(p => {
                                     const diasFrio = calcDaysFromDate(p.data_entrada)
                                     const idadePalete = calcDaysFromDate(p.data_entrada)
                                     const firoAlert = diasFrio >= 7
@@ -565,8 +608,10 @@ export default function Estoque() {
                                         </tr>
                                     )
                                 })}
-                                {paletes.length === 0 && (
-                                    <tr><td colSpan={19} className="table-cell text-center text-gray-400 py-12">Nenhum palete encontrado</td></tr>
+                                {tableData.length === 0 && (
+                                    <tr><td colSpan={19} className="table-cell text-center text-gray-400 py-12">
+                                        {frioAlertMode ? '✅ Nenhum palete em situação crítica' : 'Nenhum palete encontrado'}
+                                    </td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -574,7 +619,8 @@ export default function Estoque() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-2">
+                {frioAlertMode && <p className="text-xs text-muted text-center py-2">{tableData.length} paletes em situação crítica</p>}
+                <div className={`flex items-center justify-between pt-4 border-t border-gray-100 mt-2 ${frioAlertMode ? 'hidden' : ''}`}>
                     <span className="text-sm text-gray-500">
                         Exibindo {Math.min(page * PAGE_SIZE + 1, total)}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total} paletes
                     </span>
@@ -597,7 +643,8 @@ export default function Estoque() {
 
             {/* Import Modal */}
             {/* Import Modal */}
-            {showImport && <ImportModal onClose={() => setShowImport(false)} onSuccess={() => { setShowImport(false); fetchPaletes() }} variedades={variedades} produtores={produtores} armazens={armazens} />}
+            {showImport && <ImportModal onClose={() => setShowImport(false)} onSuccess={handleImportSuccess} variedades={variedades} produtores={produtores} armazens={armazens} />}
+            {frioImportAlert.length > 0 && <FrioImportAlertModal paletes={frioImportAlert} onClose={() => setFrioImportAlert([])} />}
 
             {/* Adicionar Palete Manual */}
             {showAddPalete && <AddPaleteModal onClose={() => setShowAddPalete(false)} onSuccess={() => { setShowAddPalete(false); fetchPaletes() }} variedades={variedades} produtores={produtores} armazens={armazens} />}
@@ -1151,6 +1198,51 @@ const LINHA_VAZIA = (): AddLinha => ({
     classificacao: 'CAT1',
     caixas: '',
 })
+
+// ── Modal de Alerta Frio pós-importação ───────────────────────────────────────
+function FrioImportAlertModal({ paletes, onClose }: { paletes: EstoquePalete[]; onClose: () => void }) {
+    const hoje = new Date()
+    const withDias = paletes.map(p => {
+        const arm = p.armazem as { nome?: string; limite_dias_frio?: number } | null
+        const limite = arm?.limite_dias_frio ?? 7
+        const dias = p.data_entrada ? Math.floor((hoje.getTime() - new Date(p.data_entrada).getTime()) / 86400000) : 0
+        return { ...p, dias, limite, emExcedente: dias > limite }
+    })
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[var(--card)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col border border-border">
+                <div className="p-6 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-foreground">❄️ Alerta de Câmara Fria</h2>
+                        <p className="text-xs text-danger font-semibold mt-0.5">
+                            {paletes.length} palete(s) precisam de atenção imediata
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="text-muted hover:text-foreground"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
+                    {withDias.map(p => (
+                        <div key={p.id} className={`flex items-center justify-between p-3 rounded-xl border ${p.emExcedente ? 'border-red-200 bg-red-50 dark:bg-red-900/10' : 'border-amber-200 bg-amber-50 dark:bg-amber-900/10'}`}>
+                            <div className="min-w-0 flex-1">
+                                <span className="font-mono text-xs font-bold text-foreground">{p.numero_palete}</span>
+                                <p className="text-xs text-muted truncate">{p.descricao ?? (p.variedade as any)?.nome ?? '—'}</p>
+                                <p className="text-[10px] text-muted">{(p.armazem as any)?.nome} · entrada {formatDate(p.data_entrada)}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-3">
+                                <p className={`text-xl font-black ${p.emExcedente ? 'text-danger' : 'text-warning'}`}>{p.dias}d</p>
+                                <p className="text-[10px] text-muted">{p.emExcedente ? `+${p.dias - p.limite}d excedente` : 'vence hoje'}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="p-4 border-t border-border flex justify-end flex-shrink-0">
+                    <button onClick={onClose} className="btn-primary">Entendido</button>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 // ── Painel de Câmara Fria ─────────────────────────────────────────────────────
 function FrioPainel({ paletes, onClose, onReload }: {
