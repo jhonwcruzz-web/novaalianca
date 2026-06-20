@@ -13,6 +13,7 @@ import Cadastros from './pages/Cadastros'
 import Usuarios from './pages/Usuarios'
 import Insumos from './pages/Insumos'
 import PTV from './pages/PTV'
+import Frete from './pages/Frete'
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="insumos" element={<Insumos />} />
               <Route path="ptv" element={<PTV />} />
+              <Route path="frete" element={<Frete />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

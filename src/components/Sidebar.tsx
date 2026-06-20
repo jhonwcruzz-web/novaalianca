@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ArrowDownToLine, Package, Truck, Users, UserCog, LogOut, LayoutList, ChevronLeft, ChevronRight, BoxesIcon, FileCheck2 } from 'lucide-react'
+import { LayoutDashboard, ArrowDownToLine, Package, Truck, Users, UserCog, LogOut, LayoutList, ChevronLeft, ChevronRight, BoxesIcon, FileCheck2, Navigation } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { getInitials } from '../lib/utils'
 import { useTheme } from '../hooks/useTheme'
@@ -13,6 +13,7 @@ const navItems = [
     { to: '/estoque', icon: Package, label: 'Armazém' },
     { to: '/expedicao', icon: Truck, label: 'Vendas' },
     { to: '/insumos', icon: BoxesIcon, label: 'Insumos' },
+    { to: '/frete', icon: Navigation, label: 'Fretes' },
     { to: '/ptv', icon: FileCheck2, label: 'PTV / CFOP' },
     { to: '/cadastros', icon: Users, label: 'Cadastros' },
 ]

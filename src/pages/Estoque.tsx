@@ -45,6 +45,8 @@ export default function Estoque() {
     const [showImport, setShowImport] = useState(false)
     const [showRomaneio, setShowRomaneio] = useState(false)
     const [showAddPalete, setShowAddPalete] = useState(false)
+    const [showFrioPanel, setShowFrioPanel] = useState(false)
+    const [frioData, setFrioData] = useState<EstoquePalete[]>([])
 
     // Romaneio form
     const [romComprador, setRomComprador] = useState('')
@@ -119,6 +121,21 @@ export default function Estoque() {
 
 
     useEffect(() => { fetchPaletes() }, [fetchPaletes])
+
+    async function fetchFrioData() {
+        const { data } = await supabase
+            .from('estoque')
+            .select('*, variedade:variedade_id(nome), produtor:produtor_id(nome), armazem:armazem_id(nome, custo_dia_frio, limite_dias_frio, custo_dia_excedente)')
+            .neq('status', 'expedido')
+            .order('data_entrada', { ascending: true })
+        const camara = (data ?? []).filter((p: any) => {
+            const nome: string = p.armazem?.nome?.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') ?? ''
+            return nome.includes('camara') || nome.includes('gvs') || nome.includes('caj')
+        })
+        setFrioData(camara as EstoquePalete[])
+    }
+
+    useEffect(() => { if (showFrioPanel) fetchFrioData() }, [showFrioPanel])
 
     const selectedPaletes = paletes.filter(p => selected.has(p.id))
     const totalCaixasSel = selectedPaletes.reduce((s, p) => s + (p.caixas ?? 0), 0)
@@ -371,11 +388,24 @@ export default function Estoque() {
                     <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Peso Estimado (KG)</p>
                     <h3 className="text-2xl font-black text-foreground">{Math.round(totais.peso).toLocaleString('pt-BR')} kg</h3>
                 </div>
-                <div className="card">
-                    <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Alerta Frios</p>
+                <button
+                    onClick={() => setShowFrioPanel(p => !p)}
+                    className={`card text-left transition-all hover:border-brand-400 ${showFrioPanel ? 'ring-2 ring-warning border-warning' : ''}`}
+                >
+                    <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">⚠ Alerta Frios</p>
                     <h3 className="text-2xl font-black text-warning leading-none">{totais.frios}</h3>
-                </div>
+                    <p className="text-[10px] text-muted mt-1">{showFrioPanel ? 'Fechar painel' : 'Ver paletes'}</p>
+                </button>
             </div>
+
+            {/* Painel de Câmara Fria */}
+            {showFrioPanel && (
+                <FrioPainel
+                    paletes={frioData}
+                    onClose={() => setShowFrioPanel(false)}
+                    onReload={fetchFrioData}
+                />
+            )}
 
             {/* Filters */}
             <div className="card py-3">
@@ -1121,6 +1151,116 @@ const LINHA_VAZIA = (): AddLinha => ({
     classificacao: 'CAT1',
     caixas: '',
 })
+
+// ── Painel de Câmara Fria ─────────────────────────────────────────────────────
+function FrioPainel({ paletes, onClose, onReload }: {
+    paletes: EstoquePalete[]
+    onClose: () => void
+    onReload: () => void
+}) {
+    const hoje = new Date()
+
+    const comDias = paletes.map(p => {
+        const dias = p.data_entrada
+            ? Math.floor((hoje.getTime() - new Date(p.data_entrada).getTime()) / 86400000)
+            : 0
+        const arm = p.armazem as { nome: string; custo_dia_frio?: number; limite_dias_frio?: number; custo_dia_excedente?: number } | null
+        const limite = arm?.limite_dias_frio ?? 7
+        const custoDia = arm?.custo_dia_frio ?? 0
+        const custoExc = arm?.custo_dia_excedente ?? custoDia
+        const custoTotal = custoDia > 0
+            ? dias <= limite
+                ? dias * custoDia
+                : limite * custoDia + (dias - limite) * custoExc
+            : null
+        const diasRestantes = limite - dias
+        const emExcedente = dias > limite
+        return { ...p, dias, limite, custoTotal, diasRestantes, emExcedente, arm }
+    }).sort((a, b) => b.dias - a.dias)
+
+    const emExcedente = comDias.filter(p => p.emExcedente)
+    const vencendoHoje = comDias.filter(p => p.diasRestantes === 0)
+    const vencendoBreve = comDias.filter(p => p.diasRestantes > 0 && p.diasRestantes <= 2)
+    const seguros = comDias.filter(p => p.diasRestantes > 2)
+    const totalCustoExcedente = emExcedente.reduce((s, p) => s + (p.custoTotal ?? 0), 0)
+
+    const faixas = [
+        { label: 'Em Excedente (pagando a mais)', itens: emExcedente, cor: 'text-danger', bg: 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800', dot: 'bg-danger' },
+        { label: 'Vence hoje / amanhã', itens: [...vencendoHoje, ...vencendoBreve], cor: 'text-warning', bg: 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700', dot: 'bg-warning' },
+        { label: 'Dentro do prazo', itens: seguros, cor: 'text-success', bg: 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800', dot: 'bg-success' },
+    ]
+
+    return (
+        <div className="card border-warning/40 bg-amber-50/30 dark:bg-amber-900/5 space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="font-black text-foreground flex items-center gap-2">
+                        ❄️ Painel de Câmara Fria
+                        <span className="text-xs font-semibold text-muted">({paletes.length} paletes monitorados)</span>
+                    </h2>
+                    {emExcedente.length > 0 && (
+                        <p className="text-sm text-danger font-semibold mt-0.5">
+                            {emExcedente.length} palete(s) em excedente — custo estimado: {formatCurrency(totalCustoExcedente)}
+                        </p>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={onReload} className="btn-secondary text-xs py-1.5">↻ Atualizar</button>
+                    <button onClick={onClose} className="text-muted hover:text-foreground"><X className="w-4 h-4" /></button>
+                </div>
+            </div>
+
+            {paletes.length === 0 ? (
+                <p className="text-center text-muted text-sm py-6">Nenhum palete em câmara fria encontrado.</p>
+            ) : (
+                <div className="space-y-4">
+                    {faixas.map(faixa => faixa.itens.length === 0 ? null : (
+                        <div key={faixa.label}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className={`w-2.5 h-2.5 rounded-full ${faixa.dot} flex-shrink-0`} />
+                                <h3 className={`text-xs font-black uppercase tracking-widest ${faixa.cor}`}>
+                                    {faixa.label} ({faixa.itens.length})
+                                </h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                {faixa.itens.map(p => (
+                                    <div key={p.id} className={`p-3 rounded-xl border ${faixa.bg} flex items-center gap-3`}>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-mono text-xs font-bold text-foreground">{p.numero_palete}</span>
+                                                <span className="text-[10px] text-muted bg-white/60 dark:bg-zinc-800/60 px-1.5 py-0.5 rounded">
+                                                    {(p.armazem as any)?.nome ?? '—'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-muted mt-0.5 truncate">{p.descricao ?? `${(p.variedade as any)?.nome ?? ''}`}</p>
+                                            <p className="text-xs text-muted">{p.caixas} cx · entrada {formatDate(p.data_entrada)}</p>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <p className={`text-lg font-black ${p.emExcedente ? 'text-danger' : p.diasRestantes <= 2 ? 'text-warning' : 'text-success'}`}>
+                                                {p.dias}d
+                                            </p>
+                                            <p className="text-[10px] text-muted">
+                                                {p.emExcedente
+                                                    ? `+${p.dias - p.limite}d excedente`
+                                                    : p.diasRestantes === 0 ? 'vence hoje'
+                                                    : `${p.diasRestantes}d restantes`}
+                                            </p>
+                                            {p.custoTotal != null && (
+                                                <p className={`text-xs font-bold mt-0.5 ${p.emExcedente ? 'text-danger' : 'text-muted'}`}>
+                                                    {formatCurrency(p.custoTotal)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
 
 function AddPaleteModal({ onClose, onSuccess, produtores, armazens }: {
     onClose: () => void
