@@ -1244,8 +1244,8 @@ function FrioImportAlertModal({ paletes, onClose }: { paletes: EstoquePalete[]; 
     )
 }
 
-// ── Painel de Câmara Fria ─────────────────────────────────────────────────────
-function FrioPainel({ paletes, onClose, onReload }: {
+// ── Painel de Câmara Fria (inativo — substituído pelo modo alerta na tabela) ──
+function _FrioPainel({ paletes, onClose, onReload }: {
     paletes: EstoquePalete[]
     onClose: () => void
     onReload: () => void
