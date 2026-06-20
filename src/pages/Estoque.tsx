@@ -110,7 +110,7 @@ export default function Estoque() {
                 c += (row.caixas ?? 0)
                 p += (row.peso_total_kg ?? 0)
                 const armazemNome = row.armazem?.nome ? row.armazem.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : ""
-                if (armazemNome.includes('camara') && row.data_entrada) {
+                if ((armazemNome.includes('camara') || armazemNome.includes('gvs') || armazemNome.includes('caj')) && row.data_entrada) {
                     if ((now.getTime() - new Date(row.data_entrada).getTime()) / 86400000 >= 7) f++
                 }
             })
