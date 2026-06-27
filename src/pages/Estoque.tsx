@@ -1339,11 +1339,17 @@ function AddPaleteModal({ onClose, onSuccess, produtores, armazens }: {
         const armNome = armazens.find(a => a.id === armazem_id)?.nome ?? 'MAN'
         const prefixo = armNome.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase().padEnd(3, 'X')
 
-        // Conta total atual do estoque para gerar sequencial
-        const { count: estoqueCount } = await supabase
+        // Busca o maior sequencial já usado com esse prefixo para evitar colisão
+        const { data: ultimoPalete } = await supabase
             .from('estoque')
-            .select('*', { count: 'exact', head: true })
-        let seq = (estoqueCount ?? 0) + 1
+            .select('numero_palete')
+            .like('numero_palete', `${prefixo}%`)
+            .order('numero_palete', { ascending: false })
+            .limit(1)
+        const ultimoSeq = ultimoPalete?.[0]?.numero_palete
+            ? parseInt(ultimoPalete[0].numero_palete.slice(3)) || 0
+            : 0
+        let seq = ultimoSeq + 1
 
         const records = linhasValidas.flatMap(l => {
             const tpl = l.template!
